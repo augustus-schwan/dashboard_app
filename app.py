@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 
-# ========= CSS PARA ESTILIZAÇÃO DOS KPIs =========
+# ========= CSS PARA ESTILIZAÇÃO DOS KPIS =========
 st.markdown(
     """
     <style>
@@ -41,25 +41,19 @@ st.markdown(
 )
 
 # ========= 1) LEITURA E PREPARAÇÃO DOS DADOS =========
-# Se o CSV estiver na raiz do repositório, use um caminho relativo:
 df = pd.read_csv("dados_editados_semana1.csv")
 df.columns = df.columns.str.strip().str.lower()  # Assegura que as colunas sejam: data, hora, sexo, boletas, monto
 
 # Converte a coluna 'data' para datetime, considerando dayfirst=True
 df['data'] = pd.to_datetime(df['data'], dayfirst=True, errors='coerce')
-# Remove linhas onde a conversão falhou (NaT)
 df = df.dropna(subset=['data'])
-# Define a coluna 'data' como índice
 df.set_index('data', inplace=True)
 
-# Verifica o tipo do índice e exibe no app para depuração
-st.write("Tipo do índice:", type(df.index))  # Deve mostrar DatetimeIndex
-
-# Cria a coluna 'data_only' a partir do índice (agora que é DatetimeIndex)
+# Cria a coluna 'data_only' a partir do índice
 df['data_only'] = df.index.date
 
-# Cria uma coluna 'time' combinando a data e a hora para preservar os minutos.
-# Supomos que a coluna 'hora' esteja no formato "HH:MM". Se for outro formato, ajuste o parâmetro 'format'.
+# Cria a coluna 'time' combinando data e hora
+# Supondo que a coluna 'hora' esteja no formato "HH:MM"
 df['time'] = pd.to_datetime(df.index.strftime('%Y-%m-%d') + ' ' + df['hora'], format='%Y-%m-%d %H:%M', errors='coerce')
 df = df.dropna(subset=['time'])
 
@@ -112,9 +106,7 @@ st.markdown(
 # ========= 4) GRÁFICO DIÁRIO INTERATIVO (Intervalo de 30 minutos) =========
 # Filtra os dados para o dia selecionado
 df_day = df[df.index.date == selected_day_date].copy()
-# Se necessário, reconstrói a coluna 'time' para o dia selecionado (com minutos zerados)
-df_day['time'] = pd.to_datetime(df_day.index.strftime('%Y-%m-%d') + ' ' + df_day['hora'].astype(str) + ":00",
-                                format='%Y-%m-%d %H:%M:%S', errors='coerce')
+
 # Reamostra os dados a cada 30 minutos com base na coluna 'time'
 df_resampled = df_day.resample('30T', on='time').agg({'monto': 'sum', 'boletas': 'sum'}).reset_index()
 
@@ -132,7 +124,7 @@ acessos_dict = {
 day_number = pd.to_datetime(selected_day_str).day
 acessos_totais = acessos_dict.get(day_number, "N/A")
 
-# Cria um gráfico interativo com Plotly para visualização com zoom e pan
+# Cria um gráfico interativo com Plotly com zoom e range slider
 fig = go.Figure()
 fig.add_trace(go.Scatter(
     x=df_resampled['time'],
@@ -151,7 +143,11 @@ fig.add_trace(go.Scatter(
 ))
 fig.update_layout(
     title=f"Variação em {selected_day_str} (Intervalo de 30 minutos) - Acessos Totais: {acessos_totais}",
-    xaxis_title="Hora",
+    xaxis=dict(
+        title="Hora",
+        rangeslider=dict(visible=True),
+        type="date"
+    ),
     yaxis=dict(
         title={"text": "Monto", "font": {"color": "blue"}},
         tickfont=dict(color="blue")
@@ -184,9 +180,8 @@ if show_payment_chart:
         df_payment['Porcentagem'],
         autopct='%1.2f%%',
         startangle=140,
-        labels=None  # Não exibe labels diretamente nos wedges
+        labels=None
     )
-    # Cria o efeito donut (círculo branco no centro)
     centre_circle = plt.Circle((0, 0), 0.70, fc='white')
     fig_pay.gca().add_artist(centre_circle)
     ax_pay.axis('equal')
