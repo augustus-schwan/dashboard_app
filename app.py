@@ -69,7 +69,7 @@ day_options = [
 ]
 with st.sidebar.expander("Menu de Dias", expanded=True):
     selected_day_str = st.radio("Selecione um dia", options=day_options)
-
+    
 # Conversão com verificação
 selected_day_dt = pd.to_datetime(selected_day_str, errors='coerce')
 if pd.isnull(selected_day_dt):
@@ -110,8 +110,8 @@ st.markdown(
 )
 
 # ========= 4) GRÁFICO DIÁRIO INTERATIVO (Intervalo de 30 minutos) =========
-# Filtra os dados para o dia selecionado
-df_day = df[df.index.date == selected_day_date].copy()
+# Filtra os dados para o dia selecionado usando to_series().dt.date
+df_day = df[df.index.to_series().dt.date == selected_day_date].copy()
 
 # Reamostra os dados a cada 30 minutos com base na coluna 'time'
 df_resampled = df_day.resample('30T', on='time').agg({'monto': 'sum', 'boletas': 'sum'}).reset_index()
