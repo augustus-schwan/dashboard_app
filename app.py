@@ -41,6 +41,7 @@ st.markdown(
 )
 
 # ========= 1) LEITURA E PREPARAÇÃO DOS DADOS =========
+# Se o CSV estiver na raiz do repositório, use um caminho relativo:
 df = pd.read_csv("dados_editados_semana1.csv")
 df.columns = df.columns.str.strip().str.lower()  # Assegura que as colunas sejam: data, hora, sexo, boletas, monto
 
@@ -52,8 +53,7 @@ df.set_index('data', inplace=True)
 # Cria a coluna 'data_only' a partir do índice
 df['data_only'] = df.index.date
 
-# Cria a coluna 'time' combinando data e hora
-# Supondo que a coluna 'hora' esteja no formato "HH:MM"
+# Cria a coluna 'time' combinando data e hora (assumindo que a coluna 'hora' esteja no formato "HH:MM")
 df['time'] = pd.to_datetime(df.index.strftime('%Y-%m-%d') + ' ' + df['hora'], format='%Y-%m-%d %H:%M', errors='coerce')
 df = df.dropna(subset=['time'])
 
@@ -69,7 +69,13 @@ day_options = [
 ]
 with st.sidebar.expander("Menu de Dias", expanded=True):
     selected_day_str = st.radio("Selecione um dia", options=day_options)
-selected_day_date = pd.to_datetime(selected_day_str).date()
+
+# Conversão com verificação
+selected_day_dt = pd.to_datetime(selected_day_str, errors='coerce')
+if pd.isnull(selected_day_dt):
+    st.error("Erro: Data selecionada inválida. Verifique as opções disponíveis.")
+else:
+    selected_day_date = selected_day_dt.date()
 
 # Menu para métodos de pagamento
 with st.sidebar.expander("Métodos de Pagamento", expanded=True):
@@ -124,7 +130,7 @@ acessos_dict = {
 day_number = pd.to_datetime(selected_day_str).day
 acessos_totais = acessos_dict.get(day_number, "N/A")
 
-# Cria um gráfico interativo com Plotly com zoom e range slider
+# Cria um gráfico interativo com Plotly com range slider para zoom
 fig = go.Figure()
 fig.add_trace(go.Scatter(
     x=df_resampled['time'],
