@@ -42,7 +42,7 @@ st.markdown(
 
 # ========= 1) LEITURA E PREPARAÇÃO DOS DADOS =========
 df = pd.read_csv("dados_editados_semana1.csv")
-df.columns = df.columns.str.strip().str.lower()  # Certifica que as colunas sejam: data, hora, sexo, boletas, monto
+df.columns = df.columns.str.strip().str.lower()  # Assegura que as colunas sejam: data, hora, sexo, boletas, monto
 
 df['data'] = pd.to_datetime(df['data'], dayfirst=True, errors='coerce')
 df.dropna(subset=['data'], inplace=True)
@@ -51,9 +51,11 @@ df.index = pd.to_datetime(df.index, errors='coerce')
 
 df['data_only'] = df.index.date
 
+# Converte a coluna 'hora' para extrair somente a hora (assumindo formato "HH:MM" no CSV)
 df['hora'] = pd.to_datetime(df['hora'], errors='coerce').dt.hour
 df.dropna(subset=['hora'], inplace=True)
 
+# Mantém apenas F e M em "sexo"
 df = df[df['sexo'].isin(["F", "M"])]
 
 # ========= 2) SIDEBAR - MENUS =========
@@ -96,20 +98,21 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# ========= 4) GRÁFICO DIÁRIO INTERATIVO (APENAS Monto) =========
+# ========= 4) GRÁFICO DIÁRIO INTERATIVO (Monto e Boletas em linhas retas) =========
 df_day = df[df.index.normalize() == pd.Timestamp(selected_day_date)].copy()
 df_day['time'] = pd.to_datetime(selected_day_str) + pd.to_timedelta(df_day['hora'], unit='h')
 
 # Reamostra a cada 30 minutos
-df_resampled = df_day.resample('30T', on='time')['monto'].sum().reset_index()
+df_resampled = df_day.resample('30T', on='time').agg({'monto': 'sum', 'boletas': 'sum'}).reset_index()
 
-# Descobre o pico máximo (maior valor de "monto" em um intervalo de 30min)
-max_monto_30min = df_resampled['monto'].max()
-
-# Se não houver dados para o dia selecionado, evita erro de max() em série vazia
+# Caso não haja dados para o dia selecionado
 if df_resampled.empty:
     st.warning("Nenhum dado para este dia.")
 else:
+    # Picos (valores máximos) para dimensionar cada eixo
+    max_monto_30min = df_resampled['monto'].max()
+    max_boletas_30min = df_resampled['boletas'].max()
+
     # Valores fixos dos acessos diários
     acessos_dict = {
         28: 1251,
@@ -125,18 +128,26 @@ else:
     acessos_totais = acessos_dict.get(day_number, "N/A")
 
     fig = go.Figure()
+    # Linha do Monto (reta, shape padrão 'linear')
     fig.add_trace(go.Scatter(
         x=df_resampled['time'],
         y=df_resampled['monto'],
         mode='lines+markers',
         name='Monto',
-        line=dict(color='blue', shape='spline'),
-        connectgaps=True
+        line=dict(color='blue'),
+    ))
+    # Linha das Boletas (reta, shape padrão 'linear', no eixo secundário)
+    fig.add_trace(go.Scatter(
+        x=df_resampled['time'],
+        y=df_resampled['boletas'],
+        mode='lines+markers',
+        name='Boletas',
+        line=dict(color='orange'),
+        yaxis="y2"
     ))
 
-    # Define o teto do eixo com base no pico máximo + 10% de folga
     fig.update_layout(
-        title=f"Variação em {selected_day_str} (Intervalo de 30 minutos) - Acessos Totais: {acessos_totais}",
+        title=f"Variação Horária em {selected_day_str} (Intervalo de 30 minutos) - Acessos Totais: {acessos_totais}",
         xaxis=dict(
             title="Hora",
             rangeslider=dict(visible=True),
@@ -145,7 +156,15 @@ else:
         yaxis=dict(
             title={"text": "Monto", "font": {"color": "blue"}},
             tickfont=dict(color="blue"),
-            range=[0, max_monto_30min * 1.1]  # Usa o pico máximo
+            range=[0, max_monto_30min * 1.1 if max_monto_30min else 1]
+        ),
+        yaxis2=dict(
+            title={"text": "Boletas", "font": {"color": "orange"}},
+            tickfont=dict(color="orange"),
+            anchor="x",
+            overlaying="y",
+            side="right",
+            range=[0, max_boletas_30min * 1.1 if max_boletas_30min else 1]
         ),
         legend=dict(x=0.01, y=0.99),
         margin=dict(l=50, r=50, t=50, b=50)
