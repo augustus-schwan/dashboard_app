@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 
-# ========= CSS PARA ESTILIZAÇÃO DOS KPIs =========
+# ========= CSS PARA ESTILIZAÇÃO DOS KPIS =========
 st.markdown(
     """
     <style>
@@ -44,20 +44,16 @@ st.markdown(
 df = pd.read_csv("dados_editados_semana1.csv")
 df.columns = df.columns.str.strip().str.lower()  # Certifica que as colunas sejam: data, hora, sexo, boletas, monto
 
-# Converte 'data' para datetime (dayfirst=True) e define como índice
 df['data'] = pd.to_datetime(df['data'], dayfirst=True, errors='coerce')
 df.dropna(subset=['data'], inplace=True)
 df.set_index('data', inplace=True)
 df.index = pd.to_datetime(df.index, errors='coerce')
 
-# Cria a coluna 'data_only' a partir do índice
 df['data_only'] = df.index.date
 
-# Converte a coluna 'hora' para extrair somente a hora
 df['hora'] = pd.to_datetime(df['hora'], errors='coerce').dt.hour
 df.dropna(subset=['hora'], inplace=True)
 
-# Exclui registros com valores de "sexo" que não sejam "F" ou "M"
 df = df[df['sexo'].isin(["F", "M"])]
 
 # ========= 2) SIDEBAR - MENUS =========
@@ -101,59 +97,60 @@ st.markdown(
 )
 
 # ========= 4) GRÁFICO DIÁRIO INTERATIVO (APENAS Monto) =========
-# Filtra os dados para o dia selecionado
 df_day = df[df.index.normalize() == pd.Timestamp(selected_day_date)].copy()
-
-# Cria a coluna 'time' somando a data selecionada + hora
 df_day['time'] = pd.to_datetime(selected_day_str) + pd.to_timedelta(df_day['hora'], unit='h')
 
-# Reamostra os dados a cada 30 minutos com base na coluna 'time'
+# Reamostra a cada 30 minutos
 df_resampled = df_day.resample('30T', on='time')['monto'].sum().reset_index()
 
-# Calcula o total de Monto do dia para ajustar o teto do eixo Y
-daily_total = df_day['monto'].sum()
+# Descobre o pico máximo (maior valor de "monto" em um intervalo de 30min)
+max_monto_30min = df_resampled['monto'].max()
 
-# Valores fixos dos acessos diários
-acessos_dict = {
-    28: 1251,
-    29: 1024,
-    30: 1671,
-    31: 891,
-    1: 1228,
-    2: 474,
-    3: 423,
-    4: 1047
-}
-day_number = pd.to_datetime(selected_day_str).day
-acessos_totais = acessos_dict.get(day_number, "N/A")
+# Se não houver dados para o dia selecionado, evita erro de max() em série vazia
+if df_resampled.empty:
+    st.warning("Nenhum dado para este dia.")
+else:
+    # Valores fixos dos acessos diários
+    acessos_dict = {
+        28: 1251,
+        29: 1024,
+        30: 1671,
+        31: 891,
+        1: 1228,
+        2: 474,
+        3: 423,
+        4: 1047
+    }
+    day_number = pd.to_datetime(selected_day_str).day
+    acessos_totais = acessos_dict.get(day_number, "N/A")
 
-# Cria um gráfico interativo com Plotly (apenas uma linha para Monto) e suaviza a linha
-fig = go.Figure()
-fig.add_trace(go.Scatter(
-    x=df_resampled['time'],
-    y=df_resampled['monto'],
-    mode='lines+markers',
-    name='Monto',
-    line=dict(color='blue', shape='spline'),  # shape='spline' para linha suave
-    connectgaps=True
-))
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=df_resampled['time'],
+        y=df_resampled['monto'],
+        mode='lines+markers',
+        name='Monto',
+        line=dict(color='blue', shape='spline'),
+        connectgaps=True
+    ))
 
-fig.update_layout(
-    title=f"Variação em {selected_day_str} (Intervalo de 30 minutos) - Acessos Totais: {acessos_totais}",
-    xaxis=dict(
-        title="Hora",
-        rangeslider=dict(visible=True),
-        type="date"
-    ),
-    yaxis=dict(
-        title={"text": "Monto", "font": {"color": "blue"}},
-        tickfont=dict(color="blue"),
-        range=[0, daily_total * 1.1]  # Ajusta o teto para 110% do total do dia
-    ),
-    legend=dict(x=0.01, y=0.99),
-    margin=dict(l=50, r=50, t=50, b=50)
-)
-st.plotly_chart(fig, use_container_width=True)
+    # Define o teto do eixo com base no pico máximo + 10% de folga
+    fig.update_layout(
+        title=f"Variação em {selected_day_str} (Intervalo de 30 minutos) - Acessos Totais: {acessos_totais}",
+        xaxis=dict(
+            title="Hora",
+            rangeslider=dict(visible=True),
+            type="date"
+        ),
+        yaxis=dict(
+            title={"text": "Monto", "font": {"color": "blue"}},
+            tickfont=dict(color="blue"),
+            range=[0, max_monto_30min * 1.1]  # Usa o pico máximo
+        ),
+        legend=dict(x=0.01, y=0.99),
+        margin=dict(l=50, r=50, t=50, b=50)
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
 # ========= 5) GRÁFICO DE MÉTODOS DE PAGAMENTO (DONUT) =========
 if show_payment_chart:
