@@ -41,7 +41,6 @@ st.markdown(
 )
 
 # ========= 1) LEITURA E PREPARAÇÃO DOS DADOS =========
-# Se o CSV estiver na raiz do repositório, use um caminho relativo:
 df = pd.read_csv("dados_editados_semana1.csv")
 df.columns = df.columns.str.strip().str.lower()  # Assegura que as colunas sejam: data, hora, sexo, boletas, monto
 
@@ -50,10 +49,10 @@ df['data'] = pd.to_datetime(df['data'], dayfirst=True, errors='coerce')
 df = df.dropna(subset=['data'])
 df.set_index('data', inplace=True)
 
-# Cria a coluna 'data_only' a partir do índice
+# Cria a coluna 'data_only' a partir do índice (para referência, se necessário)
 df['data_only'] = df.index.date
 
-# Cria a coluna 'time' combinando data e hora (assumindo que a coluna 'hora' esteja no formato "HH:MM")
+# Cria a coluna 'time' combinando data e hora (supondo que 'hora' esteja no formato "HH:MM")
 df['time'] = pd.to_datetime(df.index.strftime('%Y-%m-%d') + ' ' + df['hora'], format='%Y-%m-%d %H:%M', errors='coerce')
 df = df.dropna(subset=['time'])
 
@@ -70,7 +69,6 @@ day_options = [
 with st.sidebar.expander("Menu de Dias", expanded=True):
     selected_day_str = st.radio("Selecione um dia", options=day_options)
     
-# Conversão com verificação
 selected_day_dt = pd.to_datetime(selected_day_str, errors='coerce')
 if pd.isnull(selected_day_dt):
     st.error("Erro: Data selecionada inválida. Verifique as opções disponíveis.")
@@ -110,8 +108,8 @@ st.markdown(
 )
 
 # ========= 4) GRÁFICO DIÁRIO INTERATIVO (Intervalo de 30 minutos) =========
-# Filtra os dados para o dia selecionado usando to_series().dt.date
-df_day = df[df.index.to_series().dt.date == selected_day_date].copy()
+# Filtra os dados para o dia selecionado usando index.normalize()
+df_day = df[df.index.normalize() == pd.Timestamp(selected_day_date)].copy()
 
 # Reamostra os dados a cada 30 minutos com base na coluna 'time'
 df_resampled = df_day.resample('30T', on='time').agg({'monto': 'sum', 'boletas': 'sum'}).reset_index()
