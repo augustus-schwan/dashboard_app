@@ -41,11 +41,10 @@ st.markdown(
 )
 
 # ========= 1) LEITURA E PREPARAÇÃO DOS DADOS =========
-# Use o caminho adequado para o seu CSV; se estiver na raiz do repositório, use um caminho relativo:
 df = pd.read_csv("dados_editados_semana1.csv")
-df.columns = df.columns.str.strip().str.lower()  # Garante que as colunas sejam: data, hora, sexo, boletas, monto
+df.columns = df.columns.str.strip().str.lower()  # Certifica que as colunas sejam: data, hora, sexo, boletas, monto
 
-# Converte a coluna 'data' para datetime (dayfirst=True) e define como índice
+# Converte 'data' para datetime (dayfirst=True) e define como índice
 df['data'] = pd.to_datetime(df['data'], dayfirst=True, errors='coerce')
 df = df.dropna(subset=['data'])
 df.set_index('data', inplace=True)
@@ -58,11 +57,10 @@ df['data_only'] = df.index.date
 df['hora'] = pd.to_datetime(df['hora'], errors='coerce').dt.hour
 df.dropna(subset=['hora'], inplace=True)
 
-# Exclui registros com valores de "sexo" desconhecidos (mantém apenas "F" e "M")
+# Exclui registros com valores de "sexo" que não sejam "F" ou "M"
 df = df[df['sexo'].isin(["F", "M"])]
 
-# ========= 2) SIDEBAR COM MENUS =========
-# Menu para seleção de dia (excluindo registros cujo dia do mês seja 5)
+# ========= 2) SIDEBAR - MENUS =========
 unique_days = sorted(df['data_only'].unique())
 day_options = [
     pd.to_datetime(d).strftime('%Y-%m-%d')
@@ -72,11 +70,9 @@ with st.sidebar.expander("Menu de Dias", expanded=True):
     selected_day_str = st.radio("Selecione um dia", options=day_options)
 selected_day_date = pd.to_datetime(selected_day_str).date()
 
-# Menu para métodos de pagamento
 with st.sidebar.expander("Métodos de Pagamento", expanded=True):
     show_payment_chart = st.checkbox("Exibir Gráfico de Métodos de Pagamento")
 
-# Menu para filtro de sexo, com opção "Total"
 with st.sidebar.expander("Filtro de Sexo", expanded=True):
     selected_sexo = st.radio("Selecione o Sexo", options=["Total", "F", "M"])
 if selected_sexo != "Total":
@@ -105,16 +101,18 @@ st.markdown(
 )
 
 # ========= 4) GRÁFICO DIÁRIO INTERATIVO (Plotly com Range Slider) =========
-# Agrupa os dados por data e hora para obter a soma de 'monto' e 'boletas'
-hourly_data = df.groupby(['data_only', 'hora']).agg({'monto': 'sum', 'boletas': 'sum'}).reset_index()
-hourly_data = hourly_data[pd.to_datetime(hourly_data['data_only']).dt.day != 5]
+# Filtra os dados para o dia selecionado usando index.normalize()
+df_day = df[df.index.normalize() == pd.Timestamp(selected_day_date)].copy()
 
-# Filtra os dados para o dia selecionado
-selected_day_data = hourly_data[hourly_data['data_only'] == selected_day_date].sort_values('hora')
+# Para o gráfico interativo, precisamos criar uma coluna 'time'
+# Como no CSV temos apenas a hora (inteiro), vamos criar uma datetime combinando a data e a hora
+df_day['time'] = pd.to_datetime(selected_day_str) + pd.to_timedelta(df_day['hora'], unit='h')
 
-# Para que o eixo x seja do tipo datetime (permitindo zoom com rangeslider),
-# convertemos a coluna 'hora' (que é numérica) em um datetime, somando a hora à data selecionada.
-selected_day_data['time'] = pd.to_datetime(selected_day_str) + pd.to_timedelta(selected_day_data['hora'], unit='h')
+# Reamostra os dados a cada 30 minutos com base na coluna 'time'
+df_resampled = df_day.resample('30T', on='time').agg({'monto': 'sum', 'boletas': 'sum'}).reset_index()
+
+# Calcula o total do "monto" do dia (para ajustar o teto do eixo y)
+daily_total = df_day['monto'].sum()
 
 # Valores fixos dos acessos diários (conforme informado)
 acessos_dict = {
@@ -133,22 +131,22 @@ acessos_totais = acessos_dict.get(day_number, "N/A")
 # Cria um gráfico interativo com Plotly
 fig = go.Figure()
 fig.add_trace(go.Scatter(
-    x=selected_day_data['time'],
-    y=selected_day_data['monto'],
+    x=df_resampled['time'],
+    y=df_resampled['monto'],
     mode='lines+markers',
     name='Monto',
     line=dict(color='blue')
 ))
 fig.add_trace(go.Scatter(
-    x=selected_day_data['time'],
-    y=selected_day_data['boletas'],
+    x=df_resampled['time'],
+    y=df_resampled['boletas'],
     mode='lines+markers',
     name='Boletas',
     line=dict(color='orange'),
     yaxis="y2"
 ))
 fig.update_layout(
-    title=f"Variação Horária em {selected_day_str} (Intervalo de 30 minutos) - Acessos Totais: {acessos_totais}",
+    title=f"Variação em {selected_day_str} (Intervalo de 30 minutos) - Acessos Totais: {acessos_totais}",
     xaxis=dict(
         title="Hora",
         rangeslider=dict(visible=True),
@@ -156,7 +154,8 @@ fig.update_layout(
     ),
     yaxis=dict(
         title={"text": "Monto", "font": {"color": "blue"}},
-        tickfont=dict(color="blue")
+        tickfont=dict(color="blue"),
+        range=[0, daily_total * 1.1]  # Define o teto do eixo com base no total diário
     ),
     yaxis2=dict(
         title={"text": "Boletas", "font": {"color": "orange"}},
