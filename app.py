@@ -1,8 +1,9 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 
-# ========= CSS PARA ESTILIZAÇÃO DOS KPIS =========
+# ========= CSS PARA ESTILIZAÇÃO DOS KPIs =========
 st.markdown(
     """
     <style>
@@ -40,24 +41,33 @@ st.markdown(
 )
 
 # ========= 1) LEITURA E PREPARAÇÃO DOS DADOS =========
-# Substitua o caminho do CSV conforme necessário
+# Se o CSV estiver na raiz do repositório, use um caminho relativo:
 df = pd.read_csv("dados_editados_semana1.csv")
-df.columns = df.columns.str.strip().str.lower()  # Garante que as colunas sejam: data, hora, sexo, boletas, monto
+df.columns = df.columns.str.strip().str.lower()  # Assegura que as colunas sejam: data, hora, sexo, boletas, monto
 
-df['data'] = pd.to_datetime(df['data'], dayfirst=True)
+# Converte a coluna 'data' para datetime, considerando dayfirst=True
+df['data'] = pd.to_datetime(df['data'], dayfirst=True, errors='coerce')
+# Remove linhas onde a conversão falhou (NaT)
+df = df.dropna(subset=['data'])
+# Define a coluna 'data' como índice
 df.set_index('data', inplace=True)
 
-df['hora'] = pd.to_datetime(df['hora'], errors='coerce').dt.hour
-df.dropna(subset=['hora'], inplace=True)
+# Verifica o tipo do índice e exibe no app para depuração
+st.write("Tipo do índice:", type(df.index))  # Deve mostrar DatetimeIndex
 
-# Excluir registros com valores de "sexo" desconhecidos, mantendo apenas F e M
-df = df[df['sexo'].isin(["F", "M"])]
-
-# Cria coluna para agrupamento diário
+# Cria a coluna 'data_only' a partir do índice (agora que é DatetimeIndex)
 df['data_only'] = df.index.date
 
-# ========= 2) SIDEBAR COM MENUS =========
-# Menu para seleção de dia (excluindo registros do dia 5)
+# Cria uma coluna 'time' combinando a data e a hora para preservar os minutos.
+# Supomos que a coluna 'hora' esteja no formato "HH:MM". Se for outro formato, ajuste o parâmetro 'format'.
+df['time'] = pd.to_datetime(df.index.strftime('%Y-%m-%d') + ' ' + df['hora'], format='%Y-%m-%d %H:%M', errors='coerce')
+df = df.dropna(subset=['time'])
+
+# Exclui registros com valores de "sexo" que não sejam "F" ou "M"
+df = df[df['sexo'].isin(["F", "M"])]
+
+# ========= 2) SIDEBAR - MENUS =========
+# Menu para seleção de dia (excluindo registros cujo dia do mês seja 5)
 unique_days = sorted(df['data_only'].unique())
 day_options = [
     pd.to_datetime(d).strftime('%Y-%m-%d')
@@ -71,21 +81,18 @@ selected_day_date = pd.to_datetime(selected_day_str).date()
 with st.sidebar.expander("Métodos de Pagamento", expanded=True):
     show_payment_chart = st.checkbox("Exibir Gráfico de Métodos de Pagamento")
 
-# Novo menu para filtro de sexo, incluindo a opção "Total"
+# Menu para filtro de sexo, com opção "Total"
 with st.sidebar.expander("Filtro de Sexo", expanded=True):
     selected_sexo = st.radio("Selecione o Sexo", options=["Total", "F", "M"])
-
-# Aplica filtro de sexo, se necessário
 if selected_sexo != "Total":
     df = df[df['sexo'] == selected_sexo]
 
-# ========= 3) KPIs - Monto Total e Boletas Totais =========
+# ========= 3) KPIs - MONTO TOTAL E BOLETAS TOTAIS =========
 total_monto = df['monto'].sum()
 total_boletas = df['boletas'].sum()
 
-st.title("Dashboard de Vendas - Lotengo")
-st.subheader("28/03 à 04/04")
-
+st.title("Dashboard de Vendas")
+st.subheader("KPIs Totais")
 st.markdown(
     f"""
     <div class="kpi-container">
@@ -102,27 +109,16 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# ========= 4) GRÁFICO DIÁRIO (Variação Horária) =========
-# Agrupa os dados por data e hora para obter a soma de 'monto' e 'boletas'
-hourly_data = df.groupby(['data_only', 'hora']).agg({'monto': 'sum', 'boletas': 'sum'}).reset_index()
-hourly_data = hourly_data[pd.to_datetime(hourly_data['data_only']).dt.day != 5]
-
+# ========= 4) GRÁFICO DIÁRIO INTERATIVO (Intervalo de 30 minutos) =========
 # Filtra os dados para o dia selecionado
-selected_day_data = hourly_data[hourly_data['data_only'] == selected_day_date].sort_values('hora')
+df_day = df[df.index.date == selected_day_date].copy()
+# Se necessário, reconstrói a coluna 'time' para o dia selecionado (com minutos zerados)
+df_day['time'] = pd.to_datetime(df_day.index.strftime('%Y-%m-%d') + ' ' + df_day['hora'].astype(str) + ":00",
+                                format='%Y-%m-%d %H:%M:%S', errors='coerce')
+# Reamostra os dados a cada 30 minutos com base na coluna 'time'
+df_resampled = df_day.resample('30T', on='time').agg({'monto': 'sum', 'boletas': 'sum'}).reset_index()
 
-st.subheader(f"Variação Horária em {selected_day_str}")
-
-fig_day, ax1 = plt.subplots(figsize=(12, 6))
-ax2 = ax1.twinx()
-
-line1, = ax1.plot(selected_day_data['hora'], selected_day_data['monto'], marker='o', color='blue', label='Monto')
-ax1.set_xlabel("Hora")
-ax1.set_ylabel("Monto", color='blue')
-
-line2, = ax2.plot(selected_day_data['hora'], selected_day_data['boletas'], marker='o', color='orange', label='Boletas')
-ax2.set_ylabel("Boletas", color='orange')
-
-# ========= Acessos Totais Diários =========
+# Valores fixos dos acessos diários (conforme informado)
 acessos_dict = {
     28: 1251,
     29: 1024,
@@ -136,19 +132,45 @@ acessos_dict = {
 day_number = pd.to_datetime(selected_day_str).day
 acessos_totais = acessos_dict.get(day_number, "N/A")
 
-ax1.text(0.05, 0.95, f"Acessos Totais: {acessos_totais}", transform=ax1.transAxes,
-         fontsize=12, verticalalignment='top', bbox=dict(facecolor='white', alpha=0.5))
-
-plt.title(f"Variação Horária em {selected_day_str}")
-lines, labels = ax1.get_legend_handles_labels()
-lines2, labels2 = ax2.get_legend_handles_labels()
-ax1.legend(lines + lines2, labels + labels2, loc='upper right')
-st.pyplot(fig_day)
+# Cria um gráfico interativo com Plotly para visualização com zoom e pan
+fig = go.Figure()
+fig.add_trace(go.Scatter(
+    x=df_resampled['time'],
+    y=df_resampled['monto'],
+    mode='lines+markers',
+    name='Monto',
+    line=dict(color='blue')
+))
+fig.add_trace(go.Scatter(
+    x=df_resampled['time'],
+    y=df_resampled['boletas'],
+    mode='lines+markers',
+    name='Boletas',
+    line=dict(color='orange'),
+    yaxis="y2"
+))
+fig.update_layout(
+    title=f"Variação em {selected_day_str} (Intervalo de 30 minutos) - Acessos Totais: {acessos_totais}",
+    xaxis_title="Hora",
+    yaxis=dict(
+        title={"text": "Monto", "font": {"color": "blue"}},
+        tickfont=dict(color="blue")
+    ),
+    yaxis2=dict(
+        title={"text": "Boletas", "font": {"color": "orange"}},
+        tickfont=dict(color="orange"),
+        anchor="x",
+        overlaying="y",
+        side="right"
+    ),
+    legend=dict(x=0.01, y=0.99),
+    margin=dict(l=50, r=50, t=50, b=50)
+)
+st.plotly_chart(fig, use_container_width=True)
 
 # ========= 5) GRÁFICO DE MÉTODOS DE PAGAMENTO (DONUT) =========
 if show_payment_chart:
     st.subheader("Métodos de Pagamento")
-    
     payment_data = {
         'Método': [
             'QR', 'VISA-MASTERCARD', 'TRANSFERENCIA', 'PERSONAL',
@@ -157,19 +179,18 @@ if show_payment_chart:
         'Porcentagem': [41.89, 28.85, 18.98, 5.78, 3.19, 0.79, 0.49, 0.02]
     }
     df_payment = pd.DataFrame(payment_data)
-    
     fig_pay, ax_pay = plt.subplots(figsize=(8, 6))
     wedges, texts, autotexts = ax_pay.pie(
         df_payment['Porcentagem'],
         autopct='%1.2f%%',
         startangle=140,
-        labels=None
+        labels=None  # Não exibe labels diretamente nos wedges
     )
+    # Cria o efeito donut (círculo branco no centro)
     centre_circle = plt.Circle((0, 0), 0.70, fc='white')
     fig_pay.gca().add_artist(centre_circle)
     ax_pay.axis('equal')
     plt.title("Cargas por Canal")
-    
     ax_pay.legend(
         wedges,
         df_payment['Método'],
