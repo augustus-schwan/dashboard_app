@@ -83,8 +83,8 @@ if selected_sexo != "Total":
 total_monto = df['monto'].sum()
 total_boletas = df['boletas'].sum()
 
-st.title("Dashboard de Vendas")
-st.subheader("KPIs Totais")
+st.title("Dashboard de Vendas - Lotengo")
+st.subheader("28/03 à 04/04")
 
 st.markdown(
     f"""
