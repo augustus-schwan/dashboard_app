@@ -41,27 +41,27 @@ st.markdown(
 )
 
 # ========= 1) LEITURA E PREPARAÇÃO DOS DADOS =========
-df = pd.read_csv("dados_editados_semana1.csv")
-df.columns = df.columns.str.strip().str.lower()  # Assegura que as colunas sejam: data, hora, sexo, boletas, monto
+# Use o caminho adequado para o seu CSV; se estiver na raiz do repositório, use um caminho relativo:
+df = pd.read_csv(r"C:\Users\Rask\Documents\Projetos\Lotengo - Marketing & Data\CSVs\dados_editados_semana1.csv")
+df.columns = df.columns.str.strip().str.lower()  # Garante que as colunas sejam: data, hora, sexo, boletas, monto
 
-# Converte a coluna 'data' para datetime, considerando dayfirst=True
+# Converte a coluna 'data' para datetime (dayfirst=True) e define como índice
 df['data'] = pd.to_datetime(df['data'], dayfirst=True, errors='coerce')
 df = df.dropna(subset=['data'])
 df.set_index('data', inplace=True)
-# Força a conversão do índice para DatetimeIndex
 df.index = pd.to_datetime(df.index, errors='coerce')
 
 # Cria a coluna 'data_only' a partir do índice
 df['data_only'] = df.index.date
 
-# Cria a coluna 'time' combinando data e hora (assumindo que a coluna 'hora' esteja no formato "HH:MM")
-df['time'] = pd.to_datetime(df.index.strftime('%Y-%m-%d') + ' ' + df['hora'], format='%Y-%m-%d %H:%M', errors='coerce')
-df = df.dropna(subset=['time'])
+# Converte a coluna 'hora' para extrair somente a hora (formato "HH:MM" deve estar no CSV)
+df['hora'] = pd.to_datetime(df['hora'], errors='coerce').dt.hour
+df.dropna(subset=['hora'], inplace=True)
 
-# Exclui registros com valores de "sexo" que não sejam "F" ou "M"
+# Exclui registros com valores de "sexo" desconhecidos (mantém apenas "F" e "M")
 df = df[df['sexo'].isin(["F", "M"])]
 
-# ========= 2) SIDEBAR - MENUS =========
+# ========= 2) SIDEBAR COM MENUS =========
 # Menu para seleção de dia (excluindo registros cujo dia do mês seja 5)
 unique_days = sorted(df['data_only'].unique())
 day_options = [
@@ -70,12 +70,7 @@ day_options = [
 ]
 with st.sidebar.expander("Menu de Dias", expanded=True):
     selected_day_str = st.radio("Selecione um dia", options=day_options)
-    
-selected_day_dt = pd.to_datetime(selected_day_str, errors='coerce')
-if pd.isnull(selected_day_dt):
-    st.error("Erro: Data selecionada inválida. Verifique as opções disponíveis.")
-else:
-    selected_day_date = selected_day_dt.date()
+selected_day_date = pd.to_datetime(selected_day_str).date()
 
 # Menu para métodos de pagamento
 with st.sidebar.expander("Métodos de Pagamento", expanded=True):
@@ -109,12 +104,17 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# ========= 4) GRÁFICO DIÁRIO INTERATIVO (Intervalo de 30 minutos) =========
-# Filtra os dados para o dia selecionado usando index.normalize()
-df_day = df[df.index.normalize() == pd.Timestamp(selected_day_date)].copy()
+# ========= 4) GRÁFICO DIÁRIO INTERATIVO (Plotly com Range Slider) =========
+# Agrupa os dados por data e hora para obter a soma de 'monto' e 'boletas'
+hourly_data = df.groupby(['data_only', 'hora']).agg({'monto': 'sum', 'boletas': 'sum'}).reset_index()
+hourly_data = hourly_data[pd.to_datetime(hourly_data['data_only']).dt.day != 5]
 
-# Reamostra os dados a cada 30 minutos com base na coluna 'time'
-df_resampled = df_day.resample('30T', on='time').agg({'monto': 'sum', 'boletas': 'sum'}).reset_index()
+# Filtra os dados para o dia selecionado
+selected_day_data = hourly_data[hourly_data['data_only'] == selected_day_date].sort_values('hora')
+
+# Para que o eixo x seja do tipo datetime (permitindo zoom com rangeslider),
+# convertemos a coluna 'hora' (que é numérica) em um datetime, somando a hora à data selecionada.
+selected_day_data['time'] = pd.to_datetime(selected_day_str) + pd.to_timedelta(selected_day_data['hora'], unit='h')
 
 # Valores fixos dos acessos diários (conforme informado)
 acessos_dict = {
@@ -130,25 +130,25 @@ acessos_dict = {
 day_number = pd.to_datetime(selected_day_str).day
 acessos_totais = acessos_dict.get(day_number, "N/A")
 
-# Cria um gráfico interativo com Plotly com range slider para zoom
+# Cria um gráfico interativo com Plotly
 fig = go.Figure()
 fig.add_trace(go.Scatter(
-    x=df_resampled['time'],
-    y=df_resampled['monto'],
+    x=selected_day_data['time'],
+    y=selected_day_data['monto'],
     mode='lines+markers',
     name='Monto',
     line=dict(color='blue')
 ))
 fig.add_trace(go.Scatter(
-    x=df_resampled['time'],
-    y=df_resampled['boletas'],
+    x=selected_day_data['time'],
+    y=selected_day_data['boletas'],
     mode='lines+markers',
     name='Boletas',
     line=dict(color='orange'),
     yaxis="y2"
 ))
 fig.update_layout(
-    title=f"Variação em {selected_day_str} (Intervalo de 30 minutos) - Acessos Totais: {acessos_totais}",
+    title=f"Variação Horária em {selected_day_str} (Intervalo de 30 minutos) - Acessos Totais: {acessos_totais}",
     xaxis=dict(
         title="Hora",
         rangeslider=dict(visible=True),
