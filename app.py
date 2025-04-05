@@ -48,11 +48,13 @@ df.columns = df.columns.str.strip().str.lower()  # Assegura que as colunas sejam
 df['data'] = pd.to_datetime(df['data'], dayfirst=True, errors='coerce')
 df = df.dropna(subset=['data'])
 df.set_index('data', inplace=True)
+# Força a conversão do índice para DatetimeIndex
+df.index = pd.to_datetime(df.index, errors='coerce')
 
-# Cria a coluna 'data_only' a partir do índice (para referência, se necessário)
+# Cria a coluna 'data_only' a partir do índice
 df['data_only'] = df.index.date
 
-# Cria a coluna 'time' combinando data e hora (supondo que 'hora' esteja no formato "HH:MM")
+# Cria a coluna 'time' combinando data e hora (assumindo que a coluna 'hora' esteja no formato "HH:MM")
 df['time'] = pd.to_datetime(df.index.strftime('%Y-%m-%d') + ' ' + df['hora'], format='%Y-%m-%d %H:%M', errors='coerce')
 df = df.dropna(subset=['time'])
 
@@ -157,45 +159,4 @@ fig.update_layout(
         tickfont=dict(color="blue")
     ),
     yaxis2=dict(
-        title={"text": "Boletas", "font": {"color": "orange"}},
-        tickfont=dict(color="orange"),
-        anchor="x",
-        overlaying="y",
-        side="right"
-    ),
-    legend=dict(x=0.01, y=0.99),
-    margin=dict(l=50, r=50, t=50, b=50)
-)
-st.plotly_chart(fig, use_container_width=True)
-
-# ========= 5) GRÁFICO DE MÉTODOS DE PAGAMENTO (DONUT) =========
-if show_payment_chart:
-    st.subheader("Métodos de Pagamento")
-    payment_data = {
-        'Método': [
-            'QR', 'VISA-MASTERCARD', 'TRANSFERENCIA', 'PERSONAL',
-            'DINELCO', 'AQUI PAGO', 'CLARO', 'WEPA'
-        ],
-        'Porcentagem': [41.89, 28.85, 18.98, 5.78, 3.19, 0.79, 0.49, 0.02]
-    }
-    df_payment = pd.DataFrame(payment_data)
-    fig_pay, ax_pay = plt.subplots(figsize=(8, 6))
-    wedges, texts, autotexts = ax_pay.pie(
-        df_payment['Porcentagem'],
-        autopct='%1.2f%%',
-        startangle=140,
-        labels=None
-    )
-    centre_circle = plt.Circle((0, 0), 0.70, fc='white')
-    fig_pay.gca().add_artist(centre_circle)
-    ax_pay.axis('equal')
-    plt.title("Cargas por Canal")
-    ax_pay.legend(
-        wedges,
-        df_payment['Método'],
-        title="Métodos",
-        loc="center left",
-        bbox_to_anchor=(1, 0.5)
-    )
-    plt.tight_layout()
-    st.pyplot(fig_pay)
+        title={"text": "Bo
