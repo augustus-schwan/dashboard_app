@@ -55,7 +55,7 @@ st.markdown(
 )
 
 # ========= 1) LEITURA E PREPARAÇÃO DOS DADOS =========
-df = pd.read_csv("C:\\Users\\Rask\\Documents\\Projetos\\Lotengo - Marketing & Data\\CSVs\\dados_editados_semana1.csv")
+df = pd.read_csv("dados_editados_semana1.csv")
 df.columns = df.columns.str.strip().str.lower()  # Espera-se: data, hora, sexo, boletas, monto
 
 df['data'] = pd.to_datetime(df['data'], dayfirst=True, errors='coerce')
@@ -121,7 +121,6 @@ hourly_data = df.groupby(['data_only', 'hora']).agg({'monto': 'sum', 'boletas': 
 selected_day_data = hourly_data[hourly_data['data_only'] == selected_day_date].sort_values('hora')
 selected_day_data['time'] = pd.to_datetime(selected_day_str[:10]) + pd.to_timedelta(selected_day_data['hora'], unit='h')
 
-# Valores fixos dos acessos do dia (incluindo dias 05 e 06)
 acessos_dict = {
     5: 5028,
     6: 5112,
@@ -137,10 +136,9 @@ acessos_dict = {
 day_number = pd.to_datetime(selected_day_str[:10]).day
 acessos_totais = acessos_dict.get(day_number, "N/A")
 
-# Exibe os "Acessos do Dia" em destaque e centralizados acima do gráfico de acessos totais
+# Exibe os "Acessos do Dia" centralizados acima do gráfico de acessos totais
 st.markdown(f"<h2 style='text-align: center;'>Acessos do Dia: {acessos_totais}</h2>", unsafe_allow_html=True)
 
-# Gráfico interativo com Plotly (estilo CoinMarketCap)
 fig = go.Figure()
 fig.add_trace(go.Scatter(
     x=selected_day_data['time'],
@@ -208,12 +206,12 @@ if show_payment_chart:
 
 # ========= 6) GRÁFICO DE ACESSOS TOTAIS (Semana 1) =========
 if show_acessos_chart:
-    st.subheader("Acessos Totais - Semana 1")
+    st.subheader("Acessos Totais")
     semana1_dates = pd.date_range("2025-03-28", "2025-04-06").tolist()
     dias_str = [f"{d.strftime('%Y-%m-%d')} ({traduz_dia_semana(d)})" for d in semana1_dates]
     acessos_list = [acessos_dict.get(d.day, None) for d in semana1_dates]
     total_acessos_semana = sum([x for x in acessos_list if x is not None])
-    st.markdown(f"<h2 style='text-align: center;'>Acessos Totais na Semana: {total_acessos_semana}</h2>", unsafe_allow_html=True)
+    st.markdown(f"<h2 style='text-align: center;'>Acessos Totais: {total_acessos_semana}</h2>", unsafe_allow_html=True)
     
     df_acessos = pd.DataFrame({"Data": dias_str, "Acessos": acessos_list})
     fig_acessos = go.Figure(data=[go.Bar(
@@ -222,7 +220,7 @@ if show_acessos_chart:
         marker_color='indianred'
     )])
     fig_acessos.update_layout(
-        title="Acessos Totais - Semana 1",
+        title=f"Acessos Totais: {total_acessos_semana}",
         xaxis_title="Data",
         yaxis_title="Acessos",
         template="plotly_dark",
