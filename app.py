@@ -78,7 +78,7 @@ with st.sidebar.expander("Semana 1", expanded=True):
     selected_day_str = st.radio("Selecione um dia (Semana 1)", options=dias_semana1_str)
     selected_day_date = pd.to_datetime(selected_day_str[:10]).date()
     
-    # Opções específicas da Semana 1 (ainda dentro deste expander)
+    # Dentro do expander, ficam as opções específicas da Semana 1
     show_acessos_chart = st.checkbox("Exibir Gráfico de Acessos Totais (Semana 1)")
     selected_sexo = st.radio("Sexo do Comprador", options=["Total", "F", "M"])
 
@@ -86,7 +86,7 @@ if selected_sexo != "Total":
     df = df[df['sexo'] == selected_sexo]
 
 # ========= 2.1) MENU GERAL (fora do expander "Semana 1") =========
-# Agora, fora do expander, definimos o gráfico de métodos de pagamento total.
+# Opção para exibir o gráfico total de métodos de pagamento (fora do expander)
 show_payment_total = st.sidebar.checkbox("Exibir Gráfico de Métodos de Pagamento (Total)")
 
 # ========= 3) KPIs SEMANA 1 =========
@@ -140,7 +140,15 @@ acessos_dict = {
 day_number = pd.to_datetime(selected_day_str[:10]).day
 acessos_totais = acessos_dict.get(day_number, "N/A")
 
-st.markdown(f"<h2 style='text-align: center;'>Acessos do Dia: {acessos_totais}</h2>", unsafe_allow_html=True)
+# Calcula o número de vendas (número de transações) para o dia selecionado
+df_day_full = df[df.index.normalize() == pd.Timestamp(selected_day_date)]
+vendas_dia = df_day_full.shape[0]
+
+# Exibe os "Acessos do Dia" e "Vendas do Dia" centralizados (em uma única linha)
+st.markdown(
+    f"<h2 style='text-align: center;'>Acessos do Dia: {acessos_totais} | Vendas do Dia: {vendas_dia}</h2>",
+    unsafe_allow_html=True
+)
 
 fig = go.Figure()
 fig.add_trace(go.Scatter(
@@ -158,7 +166,7 @@ fig.update_layout(
     hovermode='x unified',
     xaxis=dict(
         title="Hora",
-        rangeslider=dict(visible=False),
+        rangeslider=dict(visible=False),  # Removida a barra de range slider
         type='date',
         showgrid=False,
         color='white'
