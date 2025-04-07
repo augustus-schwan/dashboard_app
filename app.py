@@ -95,7 +95,7 @@ total_boletas_semana = df_semana1['boletas'].sum()
 ticket_medio_semana = total_monto_semana / df_semana1.shape[0] if df_semana1.shape[0] > 0 else 0
 
 st.title("Dashboard de Vendas")
-st.subheader("KPIs Semana 1")
+st.subheader("KPIs 28 à 06 (Semana 1)")
 st.markdown(
     f"""
     <div class="kpi-container">
