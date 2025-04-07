@@ -96,7 +96,7 @@ total_monto = df['monto'].sum()
 total_boletas = df['boletas'].sum()
 
 st.title("Dashboard de Vendas")
-st.subheader("Dia 05 à 31 (exemplo)")
+st.subheader("Dia 28 à 06")
 st.markdown(
     f"""
     <div class="kpi-container">
