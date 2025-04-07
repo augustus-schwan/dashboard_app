@@ -41,39 +41,37 @@ st.markdown(
 )
 
 # ========= 1) LEITURA E PREPARAÇÃO DOS DADOS =========
-# Substitua o caminho do CSV conforme necessário
-df = pd.read_csv("dados_editados_semana1.csv")
+# Use o caminho adequado para o seu CSV
+df = pd.read_csv("C:\\Users\\Rask\\Documents\\Projetos\\Lotengo - Marketing & Data\\CSVs\\dados_editados_semana1.csv")
 df.columns = df.columns.str.strip().str.lower()  # Garante que as colunas sejam: data, hora, sexo, boletas, monto
 
 # Converte a coluna 'data' para datetime (dayfirst=True) e define como índice
-df['data'] = pd.to_datetime(df['data'], dayfirst=True)
+df['data'] = pd.to_datetime(df['data'], dayfirst=True, errors='coerce')
+df = df.dropna(subset=['data'])
 df.set_index('data', inplace=True)
+df.index = pd.to_datetime(df.index, errors='coerce')
 
+# Cria a coluna 'data_only' a partir do índice
+df['data_only'] = df.index.date
+
+# Converte a coluna 'hora' para extrair somente a hora (formato "HH:MM" deve estar no CSV)
 df['hora'] = pd.to_datetime(df['hora'], errors='coerce').dt.hour
 df.dropna(subset=['hora'], inplace=True)
 
 # Exclui registros com valores de "sexo" desconhecidos (mantém apenas "F" e "M")
 df = df[df['sexo'].isin(["F", "M"])]
 
-# Cria coluna para agrupamento diário
-df['data_only'] = df.index.date
-
-# ========= 2) SIDEBAR COM MENUS =========
-# Menu para seleção de dia (excluindo registros cujo dia do mês seja 5)
+# ========= 2) SIDEBAR - MENUS =========
+# Agora, incluímos todos os dias, inclusive os 05 e 06.
 unique_days = sorted(df['data_only'].unique())
-day_options = [
-    pd.to_datetime(d).strftime('%Y-%m-%d')
-    for d in unique_days if pd.to_datetime(d).day != 5
-]
+day_options = [pd.to_datetime(d).strftime('%Y-%m-%d') for d in unique_days]
 with st.sidebar.expander("Menu de Dias", expanded=True):
     selected_day_str = st.radio("Selecione um dia", options=day_options)
 selected_day_date = pd.to_datetime(selected_day_str).date()
 
-# Menu para métodos de pagamento
 with st.sidebar.expander("Métodos de Pagamento", expanded=True):
     show_payment_chart = st.checkbox("Exibir Gráfico de Métodos de Pagamento")
 
-# Menu para filtro de sexo, com opção "Total"
 with st.sidebar.expander("Filtro de Sexo", expanded=True):
     selected_sexo = st.radio("Selecione o Sexo", options=["Total", "F", "M"])
 if selected_sexo != "Total":
@@ -84,7 +82,7 @@ total_monto = df['monto'].sum()
 total_boletas = df['boletas'].sum()
 
 st.title("Dashboard de Vendas")
-st.subheader("28/03 à 04/04")
+st.subheader("KPIs Totais")
 st.markdown(
     f"""
     <div class="kpi-container">
@@ -104,17 +102,17 @@ st.markdown(
 # ========= 4) GRÁFICO DIÁRIO INTERATIVO (Plotly com Range Slider) =========
 # Agrupa os dados por data e hora para obter a soma de 'monto' e 'boletas'
 hourly_data = df.groupby(['data_only', 'hora']).agg({'monto': 'sum', 'boletas': 'sum'}).reset_index()
-hourly_data = hourly_data[pd.to_datetime(hourly_data['data_only']).dt.day != 5]
-
+# Removemos a condição que excluía o dia 5
 # Filtra os dados para o dia selecionado
 selected_day_data = hourly_data[hourly_data['data_only'] == selected_day_date].sort_values('hora')
 
-# Para que o eixo x seja do tipo datetime (permitindo zoom com rangeslider),
-# converte a coluna 'hora' (que é numérica) em um datetime, somando a hora à data selecionada.
+# Para que o eixo x seja do tipo datetime, converte a coluna 'hora' (numérica) em datetime, somando à data selecionada.
 selected_day_data['time'] = pd.to_datetime(selected_day_str) + pd.to_timedelta(selected_day_data['hora'], unit='h')
 
-# Valores fixos dos acessos diários (conforme informado)
+# Valores fixos dos acessos diários (agora incluindo os dias 05 e 06)
 acessos_dict = {
+    5: 5028,
+    6: 5112,
     28: 1251,
     29: 1024,
     30: 1671,
@@ -127,10 +125,10 @@ acessos_dict = {
 day_number = pd.to_datetime(selected_day_str).day
 acessos_totais = acessos_dict.get(day_number, "N/A")
 
-# Adiciona uma linha de texto maior e centralizada para os "Acessos Totais" logo abaixo do título do gráfico
+# Exibe os "Acessos Totais" em destaque e centralizados abaixo do título do gráfico
 st.markdown(f"<h2 style='text-align: center;'>Acessos Totais: {acessos_totais}</h2>", unsafe_allow_html=True)
 
-# Cria um gráfico interativo com Plotly
+# Cria o gráfico interativo com Plotly
 fig = go.Figure()
 fig.add_trace(go.Scatter(
     x=selected_day_data['time'],
@@ -156,7 +154,8 @@ fig.update_layout(
     ),
     yaxis=dict(
         title={"text": "Monto", "font": {"color": "blue"}},
-        tickfont=dict(color="blue")
+        tickfont=dict(color="blue"),
+        tickformat=",.0f"
     ),
     yaxis2=dict(
         title={"text": "Boletas", "font": {"color": "orange"}},
