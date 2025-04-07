@@ -3,6 +3,19 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 
+# Função para traduzir o dia da semana para português
+def traduz_dia_semana(dt):
+    dias = {
+        'Monday': 'Segunda',
+        'Tuesday': 'Terça',
+        'Wednesday': 'Quarta',
+        'Thursday': 'Quinta',
+        'Friday': 'Sexta',
+        'Saturday': 'Sábado',
+        'Sunday': 'Domingo'
+    }
+    return dias.get(dt.strftime('%A'), dt.strftime('%A'))
+
 # ========= CSS PARA ESTILIZAÇÃO DOS KPIS =========
 st.markdown(
     """
@@ -41,7 +54,8 @@ st.markdown(
 )
 
 # ========= 1) LEITURA E PREPARAÇÃO DOS DADOS =========
-df = pd.read_csv("dados_editados_semana1.csv")
+# Use o caminho adequado para o seu CSV; se estiver na raiz do repositório, use um caminho relativo:
+df = pd.read_csv("C:\\Users\\Rask\\Documents\\Projetos\\Lotengo - Marketing & Data\\CSVs\\dados_editados_semana1.csv")
 df.columns = df.columns.str.strip().str.lower()  # Garante que as colunas sejam: data, hora, sexo, boletas, monto
 
 # Converte a coluna 'data' para datetime (dayfirst=True) e define como índice
@@ -61,14 +75,13 @@ df.dropna(subset=['hora'], inplace=True)
 df = df[df['sexo'].isin(["F", "M"])]
 
 # ========= 2) SIDEBAR - MENUS =========
+# Lista todos os dias e adiciona o dia da semana na label
 unique_days = sorted(df['data_only'].unique())
-day_options = [
-    pd.to_datetime(d).strftime('%Y-%m-%d')
-    for d in unique_days
-]
+day_options = [f"{pd.to_datetime(d).strftime('%Y-%m-%d')} ({traduz_dia_semana(pd.to_datetime(d))})" for d in unique_days]
 with st.sidebar.expander("Menu de Dias", expanded=True):
     selected_day_str = st.radio("Selecione um dia", options=day_options)
-selected_day_date = pd.to_datetime(selected_day_str).date()
+# Para converter para data, extraímos os 10 primeiros caracteres ("YYYY-MM-DD")
+selected_day_date = pd.to_datetime(selected_day_str[:10]).date()
 
 with st.sidebar.expander("Métodos de Pagamento", expanded=True):
     show_payment_chart = st.checkbox("Exibir Gráfico de Métodos de Pagamento")
@@ -83,7 +96,7 @@ total_monto = df['monto'].sum()
 total_boletas = df['boletas'].sum()
 
 st.title("Dashboard de Vendas")
-st.subheader("Dia 28 à 06")
+st.subheader("Dia 05 à 31 (exemplo)")
 st.markdown(
     f"""
     <div class="kpi-container">
@@ -107,10 +120,10 @@ hourly_data = df.groupby(['data_only', 'hora']).agg({'monto': 'sum', 'boletas': 
 # Filtra os dados para o dia selecionado
 selected_day_data = hourly_data[hourly_data['data_only'] == selected_day_date].sort_values('hora')
 
-# Para que o eixo x seja do tipo datetime, converte a coluna 'hora' em datetime, somando à data selecionada
-selected_day_data['time'] = pd.to_datetime(selected_day_str) + pd.to_timedelta(selected_day_data['hora'], unit='h')
+# Converte a coluna 'hora' em datetime, somando à data selecionada (para permitir zoom)
+selected_day_data['time'] = pd.to_datetime(selected_day_str[:10]) + pd.to_timedelta(selected_day_data['hora'], unit='h')
 
-# Valores fixos dos acessos do dia (conforme informado, agora incluindo os dias 05 e 06 se existirem)
+# Valores fixos dos acessos do dia (incluindo dias 05 e 06)
 acessos_dict = {
     5: 5028,
     6: 5112,
@@ -123,13 +136,13 @@ acessos_dict = {
     3: 423,
     4: 1047
 }
-day_number = pd.to_datetime(selected_day_str).day
+day_number = pd.to_datetime(selected_day_str[:10]).day
 acessos_totais = acessos_dict.get(day_number, "N/A")
 
 # Exibe os "Acessos do Dia" em destaque e centralizados logo abaixo do título do gráfico
 st.markdown(f"<h2 style='text-align: center;'>Acessos do Dia: {acessos_totais}</h2>", unsafe_allow_html=True)
 
-# Cria o gráfico interativo com Plotly (exibindo Monto e Boletas)
+# Cria o gráfico interativo com Plotly (exibindo as linhas retas de Monto e Boletas)
 fig = go.Figure()
 fig.add_trace(go.Scatter(
     x=selected_day_data['time'],
