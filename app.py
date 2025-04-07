@@ -100,11 +100,11 @@ st.markdown(
     f"""
     <div class="kpi-container">
         <div class="kpi-box">
-            <div class="kpi-title">Monto Total</div>
+            <div class="kpi-title">Valor</div>
             <div class="kpi-value">{total_monto_semana:,.0f}</div>
         </div>
         <div class="kpi-box">
-            <div class="kpi-title">Boletas Totais</div>
+            <div class="kpi-title">Rifas</div>
             <div class="kpi-value">{total_boletas_semana:,.0f}</div>
         </div>
         <div class="kpi-box">
