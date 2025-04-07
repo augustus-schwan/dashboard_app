@@ -41,13 +41,12 @@ st.markdown(
 )
 
 # ========= 1) LEITURA E PREPARAÇÃO DOS DADOS =========
-# Use o caminho adequado para o seu CSV
 df = pd.read_csv("dados_editados_semana1.csv")
 df.columns = df.columns.str.strip().str.lower()  # Garante que as colunas sejam: data, hora, sexo, boletas, monto
 
 # Converte a coluna 'data' para datetime (dayfirst=True) e define como índice
 df['data'] = pd.to_datetime(df['data'], dayfirst=True, errors='coerce')
-df = df.dropna(subset=['data'])
+df.dropna(subset=['data'], inplace=True)
 df.set_index('data', inplace=True)
 df.index = pd.to_datetime(df.index, errors='coerce')
 
@@ -62,9 +61,11 @@ df.dropna(subset=['hora'], inplace=True)
 df = df[df['sexo'].isin(["F", "M"])]
 
 # ========= 2) SIDEBAR - MENUS =========
-# Agora, incluímos todos os dias, inclusive os 05 e 06.
 unique_days = sorted(df['data_only'].unique())
-day_options = [pd.to_datetime(d).strftime('%Y-%m-%d') for d in unique_days]
+day_options = [
+    pd.to_datetime(d).strftime('%Y-%m-%d')
+    for d in unique_days
+]
 with st.sidebar.expander("Menu de Dias", expanded=True):
     selected_day_str = st.radio("Selecione um dia", options=day_options)
 selected_day_date = pd.to_datetime(selected_day_str).date()
@@ -82,7 +83,7 @@ total_monto = df['monto'].sum()
 total_boletas = df['boletas'].sum()
 
 st.title("Dashboard de Vendas")
-st.subheader("KPIs Totais")
+st.subheader("Dia 28 à 06")
 st.markdown(
     f"""
     <div class="kpi-container">
@@ -102,14 +103,14 @@ st.markdown(
 # ========= 4) GRÁFICO DIÁRIO INTERATIVO (Plotly com Range Slider) =========
 # Agrupa os dados por data e hora para obter a soma de 'monto' e 'boletas'
 hourly_data = df.groupby(['data_only', 'hora']).agg({'monto': 'sum', 'boletas': 'sum'}).reset_index()
-# Removemos a condição que excluía o dia 5
+
 # Filtra os dados para o dia selecionado
 selected_day_data = hourly_data[hourly_data['data_only'] == selected_day_date].sort_values('hora')
 
-# Para que o eixo x seja do tipo datetime, converte a coluna 'hora' (numérica) em datetime, somando à data selecionada.
+# Para que o eixo x seja do tipo datetime, converte a coluna 'hora' em datetime, somando à data selecionada
 selected_day_data['time'] = pd.to_datetime(selected_day_str) + pd.to_timedelta(selected_day_data['hora'], unit='h')
 
-# Valores fixos dos acessos diários (agora incluindo os dias 05 e 06)
+# Valores fixos dos acessos do dia (conforme informado, agora incluindo os dias 05 e 06 se existirem)
 acessos_dict = {
     5: 5028,
     6: 5112,
@@ -125,10 +126,10 @@ acessos_dict = {
 day_number = pd.to_datetime(selected_day_str).day
 acessos_totais = acessos_dict.get(day_number, "N/A")
 
-# Exibe os "Acessos Totais" em destaque e centralizados abaixo do título do gráfico
-st.markdown(f"<h2 style='text-align: center;'>Acessos Totais: {acessos_totais}</h2>", unsafe_allow_html=True)
+# Exibe os "Acessos do Dia" em destaque e centralizados logo abaixo do título do gráfico
+st.markdown(f"<h2 style='text-align: center;'>Acessos do Dia: {acessos_totais}</h2>", unsafe_allow_html=True)
 
-# Cria o gráfico interativo com Plotly
+# Cria o gráfico interativo com Plotly (exibindo Monto e Boletas)
 fig = go.Figure()
 fig.add_trace(go.Scatter(
     x=selected_day_data['time'],
@@ -142,7 +143,7 @@ fig.add_trace(go.Scatter(
     y=selected_day_data['boletas'],
     mode='lines+markers',
     name='Boletas',
-    line=dict(color='orange'),
+    line=dict(color='orange', shape='linear'),
     yaxis="y2"
 ))
 fig.update_layout(
