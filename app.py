@@ -55,7 +55,7 @@ st.markdown(
 )
 
 # ========= 1) LEITURA E PREPARAÇÃO DOS DADOS =========
-df = pd.read_csv("C:\\Users\\Rask\\Documents\\Projetos\\Lotengo - Marketing & Data\\CSVs\\dados_editados_semana1.csv")
+df = pd.read_csv("dados_editados_semana1.csv")
 df.columns = df.columns.str.strip().str.lower()  # Espera-se: data, hora, sexo, boletas, monto
 
 df['data'] = pd.to_datetime(df['data'], dayfirst=True, errors='coerce')
