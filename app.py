@@ -55,8 +55,8 @@ st.markdown(
 )
 
 # ========= 1) LEITURA E PREPARAÇÃO DOS DADOS =========
-# Use o caminho adequado para o seu CSV (caminho relativo se o arquivo estiver no repositório)
-df = pd.read_csv("dados_editados_semana1.csv")
+# Use o caminho adequado para o seu CSV (caminho absoluto ou relativo)
+df = pd.read_csv("C:\\Users\\Rask\\Documents\\Projetos\\Lotengo - Marketing & Data\\CSVs\\dados_editados_semana1.csv")
 df.columns = df.columns.str.strip().str.lower()  # Espera-se: data, hora, sexo, boletas, monto
 
 df['data'] = pd.to_datetime(df['data'], dayfirst=True, errors='coerce')
@@ -66,11 +66,9 @@ df.index = pd.to_datetime(df.index, errors='coerce')
 
 df['data_only'] = df.index.date
 
-# Converte a coluna 'hora' para extrair somente a hora (assumindo formato "HH:MM")
 df['hora'] = pd.to_datetime(df['hora'], errors='coerce').dt.hour
 df.dropna(subset=['hora'], inplace=True)
 
-# Mantém apenas registros com "sexo" = F ou M
 df = df[df['sexo'].isin(["F", "M"])]
 
 # ========= 2) MENU PRINCIPAL: SEMANA 1 =========
@@ -79,24 +77,23 @@ with st.sidebar.expander("Semana 1", expanded=True):
     dias_semana1 = pd.date_range("2025-03-28", "2025-04-06").tolist()
     dias_semana1_str = [f"{d.strftime('%Y-%m-%d')} ({traduz_dia_semana(d)})" for d in dias_semana1]
     selected_day_str = st.radio("Selecione um dia (Semana 1)", options=dias_semana1_str)
-    # Converte para data (usando os 10 primeiros caracteres "YYYY-MM-DD")
     selected_day_date = pd.to_datetime(selected_day_str[:10]).date()
     
     show_payment_chart = st.checkbox("Exibir Gráfico de Métodos de Pagamento (Semana 1)")
+    show_acessos_chart = st.checkbox("Exibir Gráfico de Acessos Totais (Semana 1)")
     selected_sexo = st.radio("Sexo do Comprador", options=["Total", "F", "M"])
 
 if selected_sexo != "Total":
     df = df[df['sexo'] == selected_sexo]
 
 # ========= 3) KPIs SEMANA 1 =========
-# Filtra os dados para a semana 1 (de 2025-03-28 a 2025-04-06)
+# Filtra os dados para a Semana 1 (de 2025-03-28 a 2025-04-06)
 semana1_start = pd.Timestamp("2025-03-28")
 semana1_end   = pd.Timestamp("2025-04-06")
 df_semana1 = df[(df.index.normalize() >= semana1_start) & (df.index.normalize() <= semana1_end)]
 
 total_monto_semana = df_semana1['monto'].sum()
 total_boletas_semana = df_semana1['boletas'].sum()
-# Ticket Médio calculado como total de Monto dividido pelo número de vendas (linhas de df_semana1)
 ticket_medio_semana = total_monto_semana / df_semana1.shape[0] if df_semana1.shape[0] > 0 else 0
 
 st.title("Dashboard de Vendas")
@@ -122,13 +119,13 @@ st.markdown(
 )
 
 # ========= 4) GRÁFICO DIÁRIO INTERATIVO (Estilo CoinMarketCap) =========
-# Agrupa os dados por data e hora para a semana 1
+# Agrupa os dados por data e hora para a Semana 1
 hourly_data = df.groupby(['data_only', 'hora']).agg({'monto': 'sum', 'boletas': 'sum'}).reset_index()
 
 # Filtra os dados para o dia selecionado
 selected_day_data = hourly_data[hourly_data['data_only'] == selected_day_date].sort_values('hora')
 
-# Converte a coluna 'hora' para datetime, somando à data selecionada (para o eixo x)
+# Converte a coluna 'hora' em datetime, somando à data selecionada
 selected_day_data['time'] = pd.to_datetime(selected_day_str[:10]) + pd.to_timedelta(selected_day_data['hora'], unit='h')
 
 # Valores fixos dos acessos do dia (incluindo dias 05 e 06)
@@ -150,7 +147,7 @@ acessos_totais = acessos_dict.get(day_number, "N/A")
 # Exibe os "Acessos do Dia" centralizados abaixo do título do gráfico
 st.markdown(f"<h2 style='text-align: center;'>Acessos do Dia: {acessos_totais}</h2>", unsafe_allow_html=True)
 
-# Cria o gráfico interativo com Plotly (estilo CoinMarketCap)
+# Cria o gráfico interativo com Plotly (modelo CoinMarketCap)
 fig = go.Figure()
 fig.add_trace(go.Scatter(
     x=selected_day_data['time'],
@@ -187,7 +184,6 @@ st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
 # ========= 5) GRÁFICO DE MÉTODOS DE PAGAMENTO (DONUT) PARA SEMANA 1 =========
 if show_payment_chart:
     st.subheader("Métodos de Pagamento (Semana 1)")
-    # Exemplo atualizado dos métodos de pagamento (valores conforme a imagem atualizada)
     payment_data = {
         'Método': [
             'QR', 'VISA-MASTERCARD', 'TRANSFERENCIA', 'PERSONAL',
@@ -216,3 +212,30 @@ if show_payment_chart:
     )
     plt.tight_layout()
     st.pyplot(fig_pay)
+
+# ========= 6) GRÁFICO DE ACESSOS TOTAIS (Semana 1) =========
+with st.sidebar.expander("Semana 1", expanded=True):
+    show_acessos_chart = st.checkbox("Exibir Gráfico de Acessos Totais (Semana 1)")
+if show_acessos_chart:
+    # Cria um DataFrame com as datas da Semana 1 e os respectivos acessos
+    semana1_dates = pd.date_range("2025-03-28", "2025-04-06").tolist()
+    dias_str = [f"{d.strftime('%Y-%m-%d')} ({traduz_dia_semana(d)})" for d in semana1_dates]
+    acessos_list = []
+    for d in semana1_dates:
+        day_num = d.day
+        acessos_list.append(acessos_dict.get(day_num, None))
+    df_acessos = pd.DataFrame({"Data": dias_str, "Acessos": acessos_list})
+    
+    fig_acessos = go.Figure(data=[go.Bar(
+        x=df_acessos["Data"],
+        y=df_acessos["Acessos"],
+        marker_color='indianred'
+    )])
+    fig_acessos.update_layout(
+        title="Acessos Totais - Semana 1",
+        xaxis_title="Data",
+        yaxis_title="Acessos",
+        template="plotly_dark",
+        margin=dict(l=50, r=50, t=50, b=50)
+    )
+    st.plotly_chart(fig_acessos, use_container_width=True)
