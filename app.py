@@ -55,7 +55,7 @@ st.markdown(
 )
 
 # ========= 1) LEITURA E PREPARAÇÃO DOS DADOS =========
-df = pd.read_csv("dados_editados_semana1.csv")
+df = pd.read_csv("C:\\Users\\Rask\\Documents\\Projetos\\Lotengo - Marketing & Data\\CSVs\\dados_editados_semana1.csv")
 df.columns = df.columns.str.strip().str.lower()  # Espera-se: data, hora, sexo, boletas, monto
 
 df['data'] = pd.to_datetime(df['data'], dayfirst=True, errors='coerce')
@@ -78,15 +78,13 @@ with st.sidebar.expander("Semana 1", expanded=True):
     selected_day_str = st.radio("Selecione um dia (Semana 1)", options=dias_semana1_str)
     selected_day_date = pd.to_datetime(selected_day_str[:10]).date()
     
-    # Apenas o filtro de sexo permanece dentro deste expander
+    # Aqui ficam as opções específicas da semana 1
+    show_payment_chart = st.checkbox("Exibir Gráfico de Métodos de Pagamento (Semana 1)")
+    show_acessos_chart = st.checkbox("Exibir Gráfico de Acessos Totais (Semana 1)")
     selected_sexo = st.radio("Sexo do Comprador", options=["Total", "F", "M"])
 
 if selected_sexo != "Total":
     df = df[df['sexo'] == selected_sexo]
-
-# ========= 2.1) OUTROS CONTROLES NO SIDEBAR (fora do expander "Semana 1") =========
-show_payment_chart = st.sidebar.checkbox("Exibir Gráfico de Métodos de Pagamento (Semana 1)")
-show_acessos_chart = st.sidebar.checkbox("Exibir Gráfico de Acessos Totais (Semana 1)")
 
 # ========= 3) KPIs SEMANA 1 =========
 semana1_start = pd.Timestamp("2025-03-28")
@@ -139,7 +137,6 @@ acessos_dict = {
 day_number = pd.to_datetime(selected_day_str[:10]).day
 acessos_totais = acessos_dict.get(day_number, "N/A")
 
-# Exibe os "Acessos do Dia" centralizados acima do gráfico de acessos totais
 st.markdown(f"<h2 style='text-align: center;'>Acessos do Dia: {acessos_totais}</h2>", unsafe_allow_html=True)
 
 fig = go.Figure()
@@ -158,7 +155,7 @@ fig.update_layout(
     hovermode='x unified',
     xaxis=dict(
         title="Hora",
-        rangeslider=dict(visible=False),  # Remove a barra de range slider
+        rangeslider=dict(visible=False),  # A barra de range slider foi removida
         type='date',
         showgrid=False,
         color='white'
@@ -176,7 +173,6 @@ fig.update_layout(
 st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
 
 # ========= 5) GRÁFICO DE MÉTODOS DE PAGAMENTO (DONUT) =========
-# Agora, esse gráfico é exibido fora do menu "Semana 1"
 st.subheader("Métodos de Pagamento (Semana 1)")
 payment_data = {
     'Método': [
