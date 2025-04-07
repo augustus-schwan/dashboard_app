@@ -78,13 +78,16 @@ with st.sidebar.expander("Semana 1", expanded=True):
     selected_day_str = st.radio("Selecione um dia (Semana 1)", options=dias_semana1_str)
     selected_day_date = pd.to_datetime(selected_day_str[:10]).date()
     
-    # As opções abaixo ficam dentro do expander
-    show_payment_chart = st.checkbox("Exibir Gráfico de Métodos de Pagamento (Semana 1)")
+    # Opções específicas da Semana 1 (ainda dentro deste expander)
     show_acessos_chart = st.checkbox("Exibir Gráfico de Acessos Totais (Semana 1)")
     selected_sexo = st.radio("Sexo do Comprador", options=["Total", "F", "M"])
 
 if selected_sexo != "Total":
     df = df[df['sexo'] == selected_sexo]
+
+# ========= 2.1) MENU GERAL (fora do expander "Semana 1") =========
+# Agora, fora do expander, definimos o gráfico de métodos de pagamento total.
+show_payment_total = st.sidebar.checkbox("Exibir Gráfico de Métodos de Pagamento (Total)")
 
 # ========= 3) KPIs SEMANA 1 =========
 semana1_start = pd.Timestamp("2025-03-28")
@@ -137,7 +140,6 @@ acessos_dict = {
 day_number = pd.to_datetime(selected_day_str[:10]).day
 acessos_totais = acessos_dict.get(day_number, "N/A")
 
-# Exibe os "Acessos do Dia" centralizados acima do gráfico de acessos totais
 st.markdown(f"<h2 style='text-align: center;'>Acessos do Dia: {acessos_totais}</h2>", unsafe_allow_html=True)
 
 fig = go.Figure()
@@ -173,57 +175,39 @@ fig.update_layout(
 )
 st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
 
-# ========= 5) GRÁFICO DE MÉTODOS DE PAGAMENTO (DONUT) =========
-st.subheader("Métodos de Pagamento (Semana 1)")
-payment_data = {
-    'Método': [
-        'QR', 'VISA-MASTERCARD', 'TRANSFERENCIA', 'PERSONAL',
-        'DINELCO', 'AQUI PAGO', 'CLARO', 'WEPA'
-    ],
-    'Porcentagem': [54.50, 23.45, 13.33, 5.19, 2.55, 0.55, 0.42, 0.01]
-}
-df_payment = pd.DataFrame(payment_data)
-fig_pay, ax_pay = plt.subplots(figsize=(8, 6))
-wedges, texts, autotexts = ax_pay.pie(
-    df_payment['Porcentagem'],
-    autopct='%1.2f%%',
-    startangle=140,
-    labels=None
-)
-centre_circle = plt.Circle((0, 0), 0.70, fc='white')
-fig_pay.gca().add_artist(centre_circle)
-ax_pay.axis('equal')
-plt.title("Cargas por Canal - Semana 1")
-ax_pay.legend(
-    wedges,
-    df_payment['Método'],
-    title="Métodos",
-    loc="center left",
-    bbox_to_anchor=(1, 0.5)
-)
-plt.tight_layout()
-st.pyplot(fig_pay)
+# ========= 5) GRÁFICO DE MÉTODOS DE PAGAMENTO (DONUT) - TOTAL =========
+if show_payment_total:
+    st.subheader("Métodos de Pagamento (Total)")
+    payment_data = {
+        'Método': [
+            'QR', 'VISA-MASTERCARD', 'TRANSFERENCIA', 'PERSONAL',
+            'DINELCO', 'AQUI PAGO', 'CLARO', 'WEPA'
+        ],
+        'Porcentagem': [54.50, 23.45, 13.33, 5.19, 2.55, 0.55, 0.42, 0.01]
+    }
+    df_payment = pd.DataFrame(payment_data)
+    fig_pay, ax_pay = plt.subplots(figsize=(8, 6))
+    wedges, texts, autotexts = ax_pay.pie(
+        df_payment['Porcentagem'],
+        autopct='%1.2f%%',
+        startangle=140,
+        labels=None
+    )
+    centre_circle = plt.Circle((0, 0), 0.70, fc='white')
+    fig_pay.gca().add_artist(centre_circle)
+    ax_pay.axis('equal')
+    plt.title("Cargas por Canal - Total")
+    ax_pay.legend(
+        wedges,
+        df_payment['Método'],
+        title="Métodos",
+        loc="center left",
+        bbox_to_anchor=(1, 0.5)
+    )
+    plt.tight_layout()
+    st.pyplot(fig_pay)
 
 # ========= 6) GRÁFICO DE ACESSOS TOTAIS =========
 if show_acessos_chart:
     st.subheader("Acessos Totais")
-    semana1_dates = pd.date_range("2025-03-28", "2025-04-06").tolist()
-    dias_str = [f"{d.strftime('%Y-%m-%d')} ({traduz_dia_semana(d)})" for d in semana1_dates]
-    acessos_list = [acessos_dict.get(d.day, None) for d in semana1_dates]
-    total_acessos_semana = sum([x for x in acessos_list if x is not None])
-    st.markdown(f"<h2 style='text-align: center;'>Acessos Totais: {total_acessos_semana}</h2>", unsafe_allow_html=True)
-    
-    df_acessos = pd.DataFrame({"Data": dias_str, "Acessos": acessos_list})
-    fig_acessos = go.Figure(data=[go.Bar(
-        x=df_acessos["Data"],
-        y=df_acessos["Acessos"],
-        marker_color='indianred'
-    )])
-    fig_acessos.update_layout(
-        title=f"Acessos Totais: {total_acessos_semana}",
-        xaxis_title="Data",
-        yaxis_title="Acessos",
-        template="plotly_dark",
-        margin=dict(l=50, r=50, t=50, b=50)
-    )
-    st.plotly_chart(fig_acessos, use_container_width=True)
+    semana1_dates = pd.date_range("2025-03-28",
