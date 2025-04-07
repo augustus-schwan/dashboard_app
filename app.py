@@ -210,4 +210,23 @@ if show_payment_total:
 # ========= 6) GRÁFICO DE ACESSOS TOTAIS =========
 if show_acessos_chart:
     st.subheader("Acessos Totais")
-    semana1_dates = pd.date_range("2025-03-28",
+    semana1_dates = pd.date_range("2025-03-28", "2025-04-06").tolist()
+    dias_str = [f"{d.strftime('%Y-%m-%d')} ({traduz_dia_semana(d)})" for d in semana1_dates]
+    acessos_list = [acessos_dict.get(d.day, None) for d in semana1_dates]
+    total_acessos_semana = sum([x for x in acessos_list if x is not None])
+    st.markdown(f"<h2 style='text-align: center;'>Acessos Totais: {total_acessos_semana}</h2>", unsafe_allow_html=True)
+    
+    df_acessos = pd.DataFrame({"Data": dias_str, "Acessos": acessos_list})
+    fig_acessos = go.Figure(data=[go.Bar(
+        x=df_acessos["Data"],
+        y=df_acessos["Acessos"],
+        marker_color='indianred'
+    )])
+    fig_acessos.update_layout(
+        title=f"Acessos Totais: {total_acessos_semana}",
+        xaxis_title="Data",
+        yaxis_title="Acessos",
+        template="plotly_dark",
+        margin=dict(l=50, r=50, t=50, b=50)
+    )
+    st.plotly_chart(fig_acessos, use_container_width=True)
