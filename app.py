@@ -78,7 +78,7 @@ with st.sidebar.expander("Semana 1", expanded=True):
     selected_day_str = st.radio("Selecione um dia (Semana 1)", options=dias_semana1_str)
     selected_day_date = pd.to_datetime(selected_day_str[:10]).date()
     
-    # Aqui ficam as opções específicas da semana 1
+    # As opções abaixo ficam dentro do expander
     show_payment_chart = st.checkbox("Exibir Gráfico de Métodos de Pagamento (Semana 1)")
     show_acessos_chart = st.checkbox("Exibir Gráfico de Acessos Totais (Semana 1)")
     selected_sexo = st.radio("Sexo do Comprador", options=["Total", "F", "M"])
@@ -137,6 +137,7 @@ acessos_dict = {
 day_number = pd.to_datetime(selected_day_str[:10]).day
 acessos_totais = acessos_dict.get(day_number, "N/A")
 
+# Exibe os "Acessos do Dia" centralizados acima do gráfico de acessos totais
 st.markdown(f"<h2 style='text-align: center;'>Acessos do Dia: {acessos_totais}</h2>", unsafe_allow_html=True)
 
 fig = go.Figure()
@@ -155,7 +156,7 @@ fig.update_layout(
     hovermode='x unified',
     xaxis=dict(
         title="Hora",
-        rangeslider=dict(visible=False),  # A barra de range slider foi removida
+        rangeslider=dict(visible=False),
         type='date',
         showgrid=False,
         color='white'
