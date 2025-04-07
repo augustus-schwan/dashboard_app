@@ -55,7 +55,7 @@ st.markdown(
 )
 
 # ========= 1) LEITURA E PREPARAÇÃO DOS DADOS =========
-df = pd.read_csv("dados_editados_semana1.csv")
+df = pd.read_csv("C:\\Users\\Rask\\Documents\\Projetos\\Lotengo - Marketing & Data\\CSVs\\dados_editados_semana1.csv")
 df.columns = df.columns.str.strip().str.lower()  # Espera-se: data, hora, sexo, boletas, monto
 
 df['data'] = pd.to_datetime(df['data'], dayfirst=True, errors='coerce')
@@ -78,12 +78,15 @@ with st.sidebar.expander("Semana 1", expanded=True):
     selected_day_str = st.radio("Selecione um dia (Semana 1)", options=dias_semana1_str)
     selected_day_date = pd.to_datetime(selected_day_str[:10]).date()
     
-    show_payment_chart = st.checkbox("Exibir Gráfico de Métodos de Pagamento (Semana 1)")
-    show_acessos_chart = st.checkbox("Exibir Gráfico de Acessos Totais (Semana 1)")
+    # Apenas o filtro de sexo permanece dentro deste expander
     selected_sexo = st.radio("Sexo do Comprador", options=["Total", "F", "M"])
 
 if selected_sexo != "Total":
     df = df[df['sexo'] == selected_sexo]
+
+# ========= 2.1) OUTROS CONTROLES NO SIDEBAR (fora do expander "Semana 1") =========
+show_payment_chart = st.sidebar.checkbox("Exibir Gráfico de Métodos de Pagamento (Semana 1)")
+show_acessos_chart = st.sidebar.checkbox("Exibir Gráfico de Acessos Totais (Semana 1)")
 
 # ========= 3) KPIs SEMANA 1 =========
 semana1_start = pd.Timestamp("2025-03-28")
@@ -95,16 +98,16 @@ total_boletas_semana = df_semana1['boletas'].sum()
 ticket_medio_semana = total_monto_semana / df_semana1.shape[0] if df_semana1.shape[0] > 0 else 0
 
 st.title("Dashboard de Vendas")
-st.subheader("KPIs 28 à 06 (Semana 1)")
+st.subheader("KPIs Semana 1")
 st.markdown(
     f"""
     <div class="kpi-container">
         <div class="kpi-box">
-            <div class="kpi-title">Valor</div>
+            <div class="kpi-title">Monto Total</div>
             <div class="kpi-value">{total_monto_semana:,.0f}</div>
         </div>
         <div class="kpi-box">
-            <div class="kpi-title">Rifas</div>
+            <div class="kpi-title">Boletas Totais</div>
             <div class="kpi-value">{total_boletas_semana:,.0f}</div>
         </div>
         <div class="kpi-box">
@@ -155,7 +158,7 @@ fig.update_layout(
     hovermode='x unified',
     xaxis=dict(
         title="Hora",
-        rangeslider=dict(visible=False),
+        rangeslider=dict(visible=False),  # Remove a barra de range slider
         type='date',
         showgrid=False,
         color='white'
@@ -172,39 +175,39 @@ fig.update_layout(
 )
 st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
 
-# ========= 5) GRÁFICO DE MÉTODOS DE PAGAMENTO (DONUT) PARA SEMANA 1 =========
-if show_payment_chart:
-    st.subheader("Métodos de Pagamento (Semana 1)")
-    payment_data = {
-        'Método': [
-            'QR', 'VISA-MASTERCARD', 'TRANSFERENCIA', 'PERSONAL',
-            'DINELCO', 'AQUI PAGO', 'CLARO', 'WEPA'
-        ],
-        'Porcentagem': [54.50, 23.45, 13.33, 5.19, 2.55, 0.55, 0.42, 0.01]
-    }
-    df_payment = pd.DataFrame(payment_data)
-    fig_pay, ax_pay = plt.subplots(figsize=(8, 6))
-    wedges, texts, autotexts = ax_pay.pie(
-        df_payment['Porcentagem'],
-        autopct='%1.2f%%',
-        startangle=140,
-        labels=None
-    )
-    centre_circle = plt.Circle((0, 0), 0.70, fc='white')
-    fig_pay.gca().add_artist(centre_circle)
-    ax_pay.axis('equal')
-    plt.title("Cargas por Canal - Semana 1")
-    ax_pay.legend(
-        wedges,
-        df_payment['Método'],
-        title="Métodos",
-        loc="center left",
-        bbox_to_anchor=(1, 0.5)
-    )
-    plt.tight_layout()
-    st.pyplot(fig_pay)
+# ========= 5) GRÁFICO DE MÉTODOS DE PAGAMENTO (DONUT) =========
+# Agora, esse gráfico é exibido fora do menu "Semana 1"
+st.subheader("Métodos de Pagamento (Semana 1)")
+payment_data = {
+    'Método': [
+        'QR', 'VISA-MASTERCARD', 'TRANSFERENCIA', 'PERSONAL',
+        'DINELCO', 'AQUI PAGO', 'CLARO', 'WEPA'
+    ],
+    'Porcentagem': [54.50, 23.45, 13.33, 5.19, 2.55, 0.55, 0.42, 0.01]
+}
+df_payment = pd.DataFrame(payment_data)
+fig_pay, ax_pay = plt.subplots(figsize=(8, 6))
+wedges, texts, autotexts = ax_pay.pie(
+    df_payment['Porcentagem'],
+    autopct='%1.2f%%',
+    startangle=140,
+    labels=None
+)
+centre_circle = plt.Circle((0, 0), 0.70, fc='white')
+fig_pay.gca().add_artist(centre_circle)
+ax_pay.axis('equal')
+plt.title("Cargas por Canal - Semana 1")
+ax_pay.legend(
+    wedges,
+    df_payment['Método'],
+    title="Métodos",
+    loc="center left",
+    bbox_to_anchor=(1, 0.5)
+)
+plt.tight_layout()
+st.pyplot(fig_pay)
 
-# ========= 6) GRÁFICO DE ACESSOS TOTAIS (Semana 1) =========
+# ========= 6) GRÁFICO DE ACESSOS TOTAIS =========
 if show_acessos_chart:
     st.subheader("Acessos Totais")
     semana1_dates = pd.date_range("2025-03-28", "2025-04-06").tolist()
