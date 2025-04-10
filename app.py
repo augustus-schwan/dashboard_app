@@ -70,23 +70,23 @@ df.dropna(subset=['hora'], inplace=True)
 
 df = df[df['sexo'].isin(["F", "M"])]
 
-# ========= 2) MENU PRINCIPAL: SEMANA 1 =========
+# ========= 2) MENU PRINCIPAL: SEMANA 1 (CONTROLE SEMANA) =========
 with st.sidebar.expander("Semana 1", expanded=True):
     # Define os dias para a Semana 1 (de 2025-03-28 a 2025-04-06)
     dias_semana1 = pd.date_range("2025-03-28", "2025-04-06").tolist()
     dias_semana1_str = [f"{d.strftime('%Y-%m-%d')} ({traduz_dia_semana(d)})" for d in dias_semana1]
     selected_day_str = st.radio("Selecione um dia (Semana 1)", options=dias_semana1_str)
     selected_day_date = pd.to_datetime(selected_day_str[:10]).date()
-    
-    # Opções específicas de Semana 1
+    # Opções específicas de Semana 1:
     show_acessos_chart = st.checkbox("Exibir Gráfico de Acessos Totais (Semana 1)")
-    selected_sexo = st.radio("Sexo do Comprador", options=["Total", "F", "M"])
 
+# ========= 2.1) MENU GERAL (CONTROLES GERAIS) =========
+# Controle de filtro de sexo (aplicado de forma total)
+selected_sexo = st.sidebar.radio("Sexo do Comprador", options=["Total", "F", "M"])
 if selected_sexo != "Total":
     df = df[df['sexo'] == selected_sexo]
 
-# ========= 2.1) MENU GERAL (fora do expander "Semana 1") =========
-# Opção para exibir o gráfico total de métodos de pagamento
+# Controle para exibir o gráfico total de métodos de pagamento
 show_payment_total = st.sidebar.checkbox("Exibir Gráfico de Métodos de Pagamento (Total)")
 
 # ========= 3) KPIs SEMANA 1 =========
@@ -140,7 +140,7 @@ acessos_dict = {
 day_number = pd.to_datetime(selected_day_str[:10]).day
 acessos_totais = acessos_dict.get(day_number, "N/A")
 
-# Calcula a soma das boletas vendidas naquele dia (Vendas do Dia)
+# Calcula a soma das boletas vendidas (Vendas do Dia) para o dia selecionado
 df_day_full = df[df.index.normalize() == pd.Timestamp(selected_day_date)]
 vendas_dia = df_day_full['boletas'].sum()
 
@@ -166,7 +166,7 @@ fig.update_layout(
     hovermode='x unified',
     xaxis=dict(
         title="Hora",
-        rangeslider=dict(visible=False),
+        rangeslider=dict(visible=False),  # A barra de range slider foi removida
         type='date',
         showgrid=False,
         color='white'
