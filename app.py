@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 from datetime import datetime
 
-# --- Função para traduzir o dia da semana para português ---
+# ---------- Função para traduzir o dia da semana para português ----------
 def traduz_dia_semana(dt):
     dias = {
         'Monday': 'Segunda',
@@ -17,7 +17,7 @@ def traduz_dia_semana(dt):
     }
     return dias.get(dt.strftime('%A'), dt.strftime('%A'))
 
-# --- CSS para KPI ---
+# ---------- CSS PARA ESTILIZAÇÃO DOS KPIS ----------
 st.markdown(
     """
     <style>
@@ -54,52 +54,55 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- 1) LEITURA E PREPARAÇÃO DOS DADOS ---
+# ---------- 1) LEITURA E PREPARAÇÃO DOS DADOS ----------
 df = pd.read_csv("dados_editados_semana1.csv")
-df.columns = df.columns.str.strip().str.lower()  # Colunas: data, hora, sexo, boletas, monto
+df.columns = df.columns.str.strip().str.lower()  # espera: data, hora, sexo, boletas, monto
 
 df['data'] = pd.to_datetime(df['data'], dayfirst=True, errors='coerce')
 df.dropna(subset=['data'], inplace=True)
 df.set_index('data', inplace=True)
 df.index = pd.to_datetime(df.index, errors='coerce')
+
 df['data_only'] = df.index.date
 
 df['hora'] = pd.to_datetime(df['hora'], errors='coerce').dt.hour
 df.dropna(subset=['hora'], inplace=True)
 
+# Se houver horas fora de [0..23], podemos filtrar:
+df = df[(df['hora'] >= 0) & (df['hora'] <= 23)]
+
+# Mantém somente "F" e "M" em "sexo"
 df = df[df['sexo'].isin(["F", "M"])]
 
-# --- 2) CONTROLES GLOBAIS NO SIDEBAR ---
-# Filtro global de Sexo do Comprador (aplica a todos os gráficos)
+# ---------- 2) CONTROLES GERAIS NO SIDEBAR ----------
+# Filtro de Sexo do Comprador (aplica-se globalmente)
 selected_sexo = st.sidebar.radio("Sexo do Comprador", options=["Total", "F", "M"])
 if selected_sexo != "Total":
     df = df[df['sexo'] == selected_sexo]
 
-# Checkbox para exibir Gráfico de Métodos de Pagamento (Total)
+# Checkbox para exibir o gráfico de Métodos de Pagamento (Total)
 show_payment_total = st.sidebar.checkbox("Exibir Gráfico de Métodos de Pagamento (Total)")
 
-# --- 3) MENU DE SEMANAS ---
+# ---------- Expander "Semanas" ----------
 with st.sidebar.expander("Semanas", expanded=True):
-    # Opções para selecionar a visualização: Todas as Semanas ou Semana 1
-    semana_option = st.radio("Selecione a Semana", options=["Todas as Semanas", "Semana 1"])
-    # Se for selecionada "Semana 1", exibimos também os controles específicos dessa semana
-    if semana_option == "Semana 1":
-        # Não haverá mais seleção de dia, pois usaremos a agregação de toda a semana (28/03 a 06/04)
-        show_acessos_chart = st.checkbox("Exibir Gráfico de Acessos Totais (Semana 1)")
+    semana_option = st.radio(
+        "Selecione a Semana",
+        options=["Todas as Semanas", "Semana 1"]
+    )
 
-# --- 4) EXIBIÇÃO DOS GRÁFICOS ---
+# ---------- 3) LÓGICA DE EXIBIÇÃO ----------
 if semana_option == "Todas as Semanas":
-    # Para o gráfico "Todas as Semanas", agrupamos todo o dataset por hora (0 a 23) e calculamos a média de 'monto'
+    # ========== GRÁFICO DE MÉDIA DE COMPRAS POR HORA (TODAS AS SEMANAS) ==========
     st.subheader("Média de Compras por Hora - Todas as Semanas")
-    df_avg = df.groupby('hora')['monto'].mean().reset_index()  # média por hora
-    fig_total = go.Figure()
-    fig_total.add_trace(go.Scatter(
+    
+    # Agrupamos por hora e calculamos a média de 'monto'
+    df_avg = df.groupby('hora')['monto'].mean().reset_index()
+    # Cria o gráfico de barras
+    fig_total = go.Figure(data=[go.Bar(
         x=df_avg['hora'],
         y=df_avg['monto'],
-        mode='lines+markers',
-        line=dict(color='#FF4B4B', shape='linear'),
-        name='Média de Monto'
-    ))
+        marker_color='red'
+    )])
     fig_total.update_layout(
         xaxis=dict(title="Hora do Dia", dtick=1),
         yaxis=dict(title="Média de Monto", tickformat=",.0f"),
@@ -108,24 +111,49 @@ if semana_option == "Todas as Semanas":
         title="Média de Compras por Hora - Todas as Semanas"
     )
     st.plotly_chart(fig_total, use_container_width=True, config={'scrollZoom': True})
-    
-else:  # Se "Semana 1" for selecionada
-    # Filtra os dados para a Semana 1 (fixo: 2025-03-28 a 2025-04-06)
+
+else:
+    # ---------- SEMANA 1 ----------
+    # Filtro fixo para o período da Semana 1 (28/03 a 06/04)
     semana1_start = pd.Timestamp("2025-03-28")
     semana1_end   = pd.Timestamp("2025-04-06")
     df_semana1 = df[(df.index.normalize() >= semana1_start) & (df.index.normalize() <= semana1_end)]
     
-    # Gráfico de Média de Compras por Hora para Semana 1 (agregado para toda a semana)
+    # KPIs da Semana 1
+    total_monto_semana = df_semana1['monto'].sum()
+    total_boletas_semana = df_semana1['boletas'].sum()
+    ticket_medio_semana = total_monto_semana / df_semana1.shape[0] if df_semana1.shape[0] > 0 else 0
+    
+    st.subheader("KPIs Semana 1")
+    st.markdown(
+        f"""
+        <div class="kpi-container">
+            <div class="kpi-box">
+                <div class="kpi-title">Valor</div>
+                <div class="kpi-value">{total_monto_semana:,.0f}</div>
+            </div>
+            <div class="kpi-box">
+                <div class="kpi-title">Rifas</div>
+                <div class="kpi-value">{total_boletas_semana:,.0f}</div>
+            </div>
+            <div class="kpi-box">
+                <div class="kpi-title">Ticket Médio</div>
+                <div class="kpi-value">{ticket_medio_semana:,.2f}</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    
+    # ========== GRÁFICO DE MÉDIA DE COMPRAS POR HORA (SEMANA 1) ==========
     st.subheader("Média de Compras por Hora - Semana 1")
     df_sem1_avg = df_semana1.groupby('hora')['monto'].mean().reset_index()
-    fig_sem1 = go.Figure()
-    fig_sem1.add_trace(go.Scatter(
+    # Cria um gráfico de barras
+    fig_sem1 = go.Figure(data=[go.Bar(
         x=df_sem1_avg['hora'],
         y=df_sem1_avg['monto'],
-        mode='lines+markers',
-        line=dict(color='#FF4B4B', shape='linear'),
-        name='Média de Monto'
-    ))
+        marker_color='red'
+    )])
     fig_sem1.update_layout(
         xaxis=dict(title="Hora do Dia", dtick=1),
         yaxis=dict(title="Média de Monto", tickformat=",.0f"),
@@ -135,8 +163,8 @@ else:  # Se "Semana 1" for selecionada
     )
     st.plotly_chart(fig_sem1, use_container_width=True, config={'scrollZoom': True})
     
-    # Gráfico de Acessos Totais para Semana 1
-    # Para este gráfico, usamos um dicionário fixo de acessos para cada dia (valor de exemplo)
+    # ========== GRÁFICO DE ACESSOS TOTAIS (SEMANA 1) ==========
+    st.subheader("Acessos Totais - Semana 1")
     acessos_dict = {
         5: 5028,
         6: 5112,
@@ -149,14 +177,14 @@ else:  # Se "Semana 1" for selecionada
         3: 423,
         4: 1047
     }
-    # Calcula o total de acessos para a semana (somando os valores para os dias)
     semana1_dates = pd.date_range("2025-03-28", "2025-04-06").tolist()
     dias_str = [f"{d.strftime('%Y-%m-%d')} ({traduz_dia_semana(d)})" for d in semana1_dates]
     acessos_list = [acessos_dict.get(d.day, 0) for d in semana1_dates]
     total_acessos_semana = sum(acessos_list)
-    st.markdown(f"<h2 style='text-align: center;'>Acessos Totais: {total_acessos_semana}</h2>", unsafe_allow_html=True)
     
+    st.markdown(f"<h2 style='text-align: center;'>Acessos Totais: {total_acessos_semana}</h2>", unsafe_allow_html=True)
     df_acessos = pd.DataFrame({"Data": dias_str, "Acessos": acessos_list})
+    
     fig_acessos = go.Figure(data=[go.Bar(
         x=df_acessos["Data"],
         y=df_acessos["Acessos"],
@@ -167,11 +195,11 @@ else:  # Se "Semana 1" for selecionada
         xaxis_title="Data",
         yaxis_title="Acessos",
         template="plotly_dark",
-        margin=dict(l=50, r=50, t=50, b=50)
+        margin=dict(l=20, r=50, t=50, b=50)
     )
     st.plotly_chart(fig_acessos, use_container_width=True)
 
-# --- Gráfico de Métodos de Pagamento (Total) (controle geral) ---
+# ---------- GRÁFICO DE MÉTODOS DE PAGAMENTO (TOTAL) ----------
 if show_payment_total:
     st.subheader("Métodos de Pagamento (Total)")
     payment_data = {
